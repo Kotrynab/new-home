@@ -1197,9 +1197,12 @@ function renderHouses() {
     const g = gradeHouse(h);
     const pricePerSqm = h.price && h.size ? Math.round(parseInt(h.price)/parseInt(h.size)).toLocaleString() : '—';
     const stars = h.rating > 0 ? '⭐'.repeat(parseInt(h.rating)) : '—';
-    const photo = h.photo
+    const photoImg = h.photo
       ? `<img class="ht-photo" src="${h.photo}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="ht-photo-empty" style="display:none;">🏠</div>`
       : `<div class="ht-photo-empty">🏠</div>`;
+    const photo = h.link
+      ? `<a href="${h.link}" target="_blank" style="display:block;cursor:pointer;" title="Open listing">${photoImg}</a>`
+      : photoImg;
     const typeShort = h.type ? h.type.split('/')[0].trim() : '—';
     return `<tr class="${h.status==='rejected'?'rejected-row':''}">
       <td>${photo}</td>
