@@ -611,6 +611,7 @@
             </div>
             <button class="btn btn-primary" onclick="openModal('project-modal')">+ New Project</button>
         </div>
+        <div id="projects-summary"></div>
         <div id="projects-list"></div>
     </section>
 
@@ -621,15 +622,11 @@
                 <div class="page-title">Tasks</div>
             </div>
             <div style="display:flex;gap:12px;align-items:center">
-                <div class="view-toggle">
-                    <button class="view-btn active" id="btn-list" onclick="switchTaskView('list')">List</button>
-                    <button class="view-btn" id="btn-timeline" onclick="switchTaskView('timeline')">Timeline</button>
-                </div>
                 <button class="btn btn-primary" onclick="openModal('task-modal')">+ Add Task</button>
             </div>
         </div>
-        <div id="tasks-list"></div>
-        <div id="tasks-timeline" style="display:none"></div>
+        <div id="tasks-list" style="display:none"></div>
+        <div id="tasks-timeline"></div>
     </section>
 
     <!-- INVOICES ─────────────────────────────────────────────── -->
@@ -958,6 +955,10 @@
                 <input class="form-input" id="p-price" type="number" placeholder="0">
             </div>
         </div>
+        <div class="form-group">
+            <label class="form-label">Month</label>
+            <input class="form-input" id="p-month" type="month">
+        </div>
         <div class="form-row">
             <div class="form-group">
                 <label class="form-label">Stage</label>
@@ -1180,7 +1181,7 @@ function renderSection(s) {
     if (s === 'dashboard') renderDashboard();
     if (s === 'clients')   renderClients();
     if (s === 'projects')  renderProjects();
-    if (s === 'tasks')     renderTasks();
+    if (s === 'tasks')     renderTimeline();
     if (s === 'invoices')  renderInvoices();
     if (s === 'worklog')   renderWorkLog();
     if (s === 'expenses')  renderExpenses();
@@ -1372,77 +1373,145 @@ function saveProject() {
         clientId: document.getElementById('p-client').value,
         type: document.getElementById('p-type').value,
         price: document.getElementById('p-price').value || 0,
+        month: document.getElementById('p-month').value,
         stage: document.getElementById('p-stage').value,
         deadline: document.getElementById('p-deadline').value,
         createdAt: new Date().toISOString(),
     });
     DB.set('projects', projects);
     closeModal('project-modal');
-    ['p-name','p-price','p-deadline'].forEach(id => document.getElementById(id).value = '');
+    ['p-name','p-price','p-month','p-deadline'].forEach(id => document.getElementById(id).value = '');
     toast('Project saved ✓');
     renderProjects();
+    renderTimeline();
     updateBadges();
 }
 
 function renderProjects() {
     const projects = DB.get('projects');
-    const clients = DB.get('clients');
-    const el = document.getElementById('projects-list');
+    const clients  = DB.get('clients');
+    const allTasks = DB.get('tasks');
+    const summaryEl = document.getElementById('projects-summary');
+    const listEl    = document.getElementById('projects-list');
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
     if (!projects.length) {
-        el.innerHTML = `<div class="card"><div class="empty"><div class="empty-icon">◈</div>No projects yet.<br>Create your first project to start tracking.</div></div>`;
+        summaryEl.innerHTML = '';
+        listEl.innerHTML = `<div class="card"><div class="empty"><div class="empty-icon">◈</div>No projects yet.<br>Click <strong>+ New Project</strong> to start tracking.</div></div>`;
         return;
     }
 
-    // Group by stage
-    const stages = ['inquiry','negotiating','in_progress','preview_sent','revisions','delivered','invoiced','paid'];
-    const active = projects.filter(p => stages.slice(0,6).includes(p.stage));
-    const done = projects.filter(p => ['invoiced','paid'].includes(p.stage));
+    // Summary stats
+    const now = new Date();
+    const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const thisMonthProjects = projects.filter(p => p.month === thisMonthKey);
+    const thisYearProjects  = projects.filter(p => p.month && p.month.startsWith(String(now.getFullYear())));
+    const thisMonthTotal = thisMonthProjects.reduce((s,p) => s + (parseFloat(p.price)||0), 0);
+    const thisYearTotal  = thisYearProjects.reduce((s,p)  => s + (parseFloat(p.price)||0), 0);
 
-    const renderGroup = (title, items) => {
-        if (!items.length) return '';
-        return `
-        <div style="margin-bottom:28px">
-            <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:12px">${title}</div>
-            <div style="display:flex;flex-direction:column;gap:10px">
-                ${items.map(p => {
-                    const client = clients.find(c => c.id === p.clientId);
-                    const stageColor = STAGE_COLORS[p.stage] || '#F0F0F0';
-                    const stageText = STAGE_TEXT[p.stage] || '#555';
-                    const today = new Date(); today.setHours(0,0,0,0);
-                    const deadline = p.deadline ? new Date(p.deadline) : null;
-                    let deadlineBadge = '';
-                    if (deadline) {
-                        const diff = Math.ceil((deadline - today) / 86400000);
-                        if (diff < 0) deadlineBadge = `<span class="badge badge-overdue">Overdue ${Math.abs(diff)}d</span>`;
-                        else if (diff === 0) deadlineBadge = `<span class="badge badge-today">Due today</span>`;
-                        else if (diff <= 3) deadlineBadge = `<span class="badge badge-today">Due in ${diff}d</span>`;
-                        else deadlineBadge = `<span class="badge badge-soon">Due ${deadline.toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>`;
-                    }
-                    return `
-                    <div class="card" style="padding:20px 24px;display:flex;align-items:center;gap:16px">
-                        <div style="flex:1;min-width:0">
-                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
-                                <div style="font-size:15px;font-weight:700">${p.name}</div>
-                                <span style="font-size:11px;font-weight:700;background:${stageColor};color:${stageText};padding:3px 9px;border-radius:20px">${STAGE_LABELS[p.stage]}</span>
-                            </div>
-                            <div style="font-size:13px;color:var(--muted)">${client?.name || '—'} · ${p.type}</div>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:12px">
-                            ${deadlineBadge}
-                            <div style="font-size:15px;font-weight:800;min-width:60px;text-align:right">${eur(p.price)}</div>
-                            <select onchange="updateProjectStage('${p.id}',this.value)" style="border:2px solid var(--border);border-radius:10px;padding:6px 10px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;outline:none;background:white">
-                                ${stages.map(s => `<option value="${s}" ${p.stage===s?'selected':''}>${STAGE_LABELS[s]}</option>`).join('')}
-                            </select>
-                            <button onclick="deleteProject('${p.id}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:4px">✕</button>
-                        </div>
-                    </div>`;
-                }).join('')}
+    summaryEl.innerHTML = `
+        <div class="stats-grid" style="margin-bottom:24px">
+            <div class="stat-card lime">
+                <div class="stat-label">This month</div>
+                <div class="stat-value">${eur(thisMonthTotal)}</div>
+                <div class="stat-sub">${thisMonthProjects.length} project${thisMonthProjects.length !== 1 ? 's' : ''}</div>
             </div>
         </div>`;
-    };
 
-    el.innerHTML = renderGroup('Active', active) + renderGroup('Completed', done);
+    const stages = ['inquiry','negotiating','in_progress','preview_sent','revisions','delivered','invoiced','paid'];
+    const today = new Date(); today.setHours(0,0,0,0);
+
+    // Group by month key, newest first, unassigned at end
+    const byMonth = {};
+    projects.forEach(p => {
+        const key = p.month || '__none__';
+        if (!byMonth[key]) byMonth[key] = [];
+        byMonth[key].push(p);
+    });
+
+    listEl.innerHTML = Object.keys(byMonth).sort((a,b) => {
+        if (a === '__none__') return 1;
+        if (b === '__none__') return -1;
+        return b.localeCompare(a);
+    }).map(key => {
+        const rows = byMonth[key];
+        const label = key === '__none__'
+            ? 'No Month Assigned'
+            : (() => { const [y,m] = key.split('-'); return `${monthNames[parseInt(m)-1]} ${y}`; })();
+        const total = rows.reduce((s,p) => s + (parseFloat(p.price)||0), 0);
+
+        const tableRows = rows.map(p => {
+            const client     = clients.find(c => c.id === p.clientId);
+            const stageColor = STAGE_COLORS[p.stage] || '#F0F0F0';
+            const stageText  = STAGE_TEXT[p.stage]   || '#555';
+            const deadline   = p.deadline ? new Date(p.deadline) : null;
+            let deadlineStr  = '—';
+            let deadlineColor = 'var(--muted)';
+            if (deadline) {
+                const diff = Math.ceil((deadline - today) / 86400000);
+                deadlineStr = deadline.toLocaleDateString('en-GB', {day:'numeric', month:'short'});
+                if (diff < 0) deadlineColor = '#D63030';
+                else if (diff <= 3) deadlineColor = '#E07000';
+            }
+            const projTasks = allTasks.filter(t => t.projectId === p.id);
+            const doneCount = projTasks.filter(t => t.done).length;
+            const taskStr   = projTasks.length ? `${doneCount}/${projTasks.length}` : '—';
+
+            return `
+            <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:14px 10px 14px 0;font-size:14px;font-weight:600">
+                    ${p.name}
+                    ${p.type ? `<div style="font-size:12px;color:var(--muted);font-weight:400;margin-top:2px">${p.type}</div>` : ''}
+                </td>
+                <td style="padding:14px 10px 14px 0;font-size:13px;color:var(--muted)">${client?.name || '—'}</td>
+                <td style="padding:14px 10px 14px 0;font-size:13px;color:${deadlineColor};font-weight:600">${deadlineStr}</td>
+                <td style="padding:14px 10px 14px 0;font-size:13px;color:var(--muted);text-align:center">${taskStr}</td>
+                <td style="padding:14px 10px 14px 0">
+                    <span style="font-size:11px;font-weight:700;background:${stageColor};color:${stageText};padding:3px 9px;border-radius:20px;white-space:nowrap">${STAGE_LABELS[p.stage]}</span>
+                </td>
+                <td style="padding:14px 0;font-size:15px;font-weight:800;text-align:right">
+                    <input type="number" value="${p.price||0}" onchange="updateProjectPrice('${p.id}',this.value)" style="font-size:15px;font-weight:800;width:80px;text-align:right;border:2px solid transparent;border-radius:8px;padding:3px 6px;font-family:inherit;background:transparent;cursor:pointer;outline:none" onfocus="this.style.borderColor='var(--border)';this.style.background='white'" onblur="this.style.borderColor='transparent';this.style.background='transparent'">
+                </td>
+                <td style="padding:14px 0;text-align:right;white-space:nowrap">
+                    <select onchange="updateProjectStage('${p.id}',this.value)" style="border:2px solid var(--border);border-radius:8px;padding:5px 8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;outline:none;background:white;margin-right:8px">
+                        ${stages.map(s => `<option value="${s}" ${p.stage===s?'selected':''}>${STAGE_LABELS[s]}</option>`).join('')}
+                    </select>
+                    <button onclick="deleteProject('${p.id}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px">✕</button>
+                </td>
+            </tr>`;
+        }).join('');
+
+        return `<div class="card" style="margin-bottom:16px">
+            <div class="card-header">
+                <div>
+                    <div class="card-title" style="font-size:17px">${label}</div>
+                    <div style="font-size:13px;color:var(--muted);margin-top:3px;font-weight:500">${rows.length} project${rows.length !== 1 ? 's' : ''}</div>
+                </div>
+                <div style="font-size:20px;font-weight:800">${eur(total)}</div>
+            </div>
+            <table style="width:100%;border-collapse:collapse">
+                <thead>
+                    <tr style="border-bottom:2px solid var(--border)">
+                        <th style="text-align:left;padding:10px 10px 10px 0;font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);font-weight:700">Project</th>
+                        <th style="text-align:left;padding:10px 10px 10px 0;font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);font-weight:700">Client</th>
+                        <th style="text-align:left;padding:10px 10px 10px 0;font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);font-weight:700">Deadline</th>
+                        <th style="text-align:center;padding:10px 10px 10px 0;font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);font-weight:700">Tasks</th>
+                        <th style="text-align:left;padding:10px 10px 10px 0;font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);font-weight:700">Status</th>
+                        <th style="text-align:right;padding:10px 0;font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);font-weight:700">Price</th>
+                        <th style="width:180px"></th>
+                    </tr>
+                </thead>
+                <tbody>${tableRows}</tbody>
+                <tfoot>
+                    <tr style="border-top:2px solid var(--border)">
+                        <td colspan="5" style="padding:12px 0;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.06em">Month total</td>
+                        <td style="padding:12px 0;text-align:right;font-size:15px;font-weight:800">${eur(total)}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>`;
+    }).join('');
 }
 
 function updateProjectStage(id, stage) {
@@ -1451,6 +1520,14 @@ function updateProjectStage(id, stage) {
     if (p) { p.stage = stage; DB.set('projects', projects); }
     updateBadges();
     renderDashboard();
+}
+
+function updateProjectPrice(id, value) {
+    const projects = DB.get('projects');
+    const p = projects.find(p => p.id === id);
+    if (p) { p.price = parseFloat(value) || 0; DB.set('projects', projects); }
+    renderDashboard();
+    toast('Price updated ✓');
 }
 
 function deleteProject(id) {
@@ -1480,6 +1557,7 @@ function saveTask() {
     ['t-title','t-start','t-due'].forEach(id => document.getElementById(id).value = '');
     toast('Task added ✓');
     renderTasks();
+    renderProjects();
     updateBadges();
 }
 
@@ -1776,13 +1854,10 @@ function toggleInvoicePaid(id) {
 // ── Task View Switch ─────────────────────────────────────────────
 let currentTaskView = 'list';
 function switchTaskView(view) {
-    currentTaskView = view;
-    document.getElementById('btn-list').classList.toggle('active', view === 'list');
-    document.getElementById('btn-timeline').classList.toggle('active', view === 'timeline');
-    document.getElementById('tasks-list').style.display = view === 'list' ? 'block' : 'none';
-    document.getElementById('tasks-timeline').style.display = view === 'timeline' ? 'block' : 'none';
-    if (view === 'timeline') renderTimeline();
-    else renderTasks();
+    currentTaskView = 'timeline';
+    document.getElementById('tasks-list').style.display = 'none';
+    document.getElementById('tasks-timeline').style.display = 'block';
+    renderTimeline();
 }
 
 // ── Timeline ─────────────────────────────────────────────────────
@@ -1808,13 +1883,11 @@ function renderTimeline() {
 
     const today = new Date(); today.setHours(0,0,0,0);
 
-    // Monday of this week
     const dow = today.getDay();
     const toMon = dow === 0 ? 6 : dow - 1;
     const thisMonday = new Date(today);
     thisMonday.setDate(today.getDate() - toMon);
 
-    // Apply week offset
     const startMonday = new Date(thisMonday);
     startMonday.setDate(thisMonday.getDate() + timelineOffset * 7);
 
@@ -1823,7 +1896,6 @@ function renderTimeline() {
         return;
     }
 
-    // Pre-parse tasks
     const parsed = tasks.map((t, i) => ({
         ...t,
         _s: t.startDate ? new Date(t.startDate) : (t.dueDate ? new Date(t.dueDate) : null),
@@ -1832,7 +1904,6 @@ function renderTimeline() {
         _p: projects.find(p => p.id === t.projectId),
     }));
 
-    // Build week rows
     const weekRows = [];
     for (let w = 0; w < WEEKS; w++) {
         const mon = new Date(startMonday); mon.setDate(mon.getDate() + w * 7);
@@ -1842,12 +1913,9 @@ function renderTimeline() {
             const day = new Date(mon); day.setDate(mon.getDate() + d); return day;
         });
 
-        // Tasks overlapping this week
         const wTasks = parsed.filter(t => t._s && t._e && t._s <= sun && t._e >= mon);
-
         const rowH = Math.max(52, PAD + wTasks.length * (BAR_H + BAR_GAP) + PAD);
 
-        // Day backgrounds
         const bgCells = weekDays.map((d, i) => {
             const isToday = d.getTime() === today.getTime();
             const isWknd  = i >= 5;
@@ -1858,7 +1926,6 @@ function renderTimeline() {
             </div>`;
         }).join('');
 
-        // Task bars
         const bars = wTasks.map((t, bi) => {
             const effS = t._s < mon ? mon : t._s;
             const effE = t._e > sun ? sun : t._e;
@@ -1890,7 +1957,6 @@ function renderTimeline() {
         </div>`);
     }
 
-    // Header
     const dayHeader = DAY_NAMES.map((n, i) =>
         `<div style="flex:1;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:${i>=5?'#ccc':'var(--muted)'};padding:9px 0">${n}</div>`
     ).join('');
@@ -2465,11 +2531,6 @@ function renderExpenses() {
                 <div class="stat-value">${eur(yearTotal)}</div>
                 <div class="stat-sub">${thisYear.length} expense${thisYear.length !== 1 ? 's' : ''}</div>
             </div>
-            <div class="stat-card blue">
-                <div class="stat-label">Monthly recurring</div>
-                <div class="stat-value" style="color:var(--white)">${eur(recurring)}</div>
-                <div class="stat-sub" style="color:var(--white)">every month</div>
-            </div>
         </div>`;
 
     // Group by month
@@ -2940,6 +3001,14 @@ if (DB.get('expenses').length === 0) {
     if (filtered.length !== invoices.length) DB.set('invoices', filtered);
 })();
 
+
+// One-time migration: assign May 2026 to any project without a month
+(function migrateProjectMonths() {
+    const projects = DB.get('projects');
+    let changed = false;
+    projects.forEach(p => { if (!p.month) { p.month = '2026-05'; changed = true; } });
+    if (changed) DB.set('projects', projects);
+})();
 
 renderDashboard();
 renderMonthly();
