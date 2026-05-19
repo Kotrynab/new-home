@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Our House Search · Kaunas 2027</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,600;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
   :root {
     --sage: #D6DAC8;
@@ -424,7 +422,10 @@
     <h1>Our House Search</h1>
     <div class="subtitle">Kaunas · 150–220k€ · 2027</div>
   </div>
-  <div id="countdown-display"></div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span id="sync-badge" style="font-size:0.72rem;background:rgba(255,255,255,0.15);padding:4px 12px;border-radius:99px;opacity:0;transition:opacity 0.4s;">✓ Synced</span>
+    <div id="countdown-display"></div>
+  </div>
 </div>
 
 <nav>
@@ -936,64 +937,73 @@
 </div>
 
 <script>
-// ===== FIREBASE SETUP =====
-// Paste your Firebase config here after creating a project at https://console.firebase.google.com
-const firebaseConfig = {
-  apiKey: "REPLACE_API_KEY",
-  authDomain: "REPLACE_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://REPLACE_PROJECT_ID-default-rtdb.firebaseio.com",
-  projectId: "REPLACE_PROJECT_ID",
-};
-let firebaseDB = null;
-let _ownWrite = false;
-try {
-  firebase.initializeApp(firebaseConfig);
-  firebaseDB = firebase.database();
-} catch(e) { console.warn('Firebase not configured yet'); }
+// ===== JSONBIN SYNC =====
+const JSONBIN_KEY = '$2a$10$uBs1rNHHGiAoKs2epp6sfOyq5/.Ae7nZNhCEG8Pm8pfvVqrZcELiC';
+const JSONBIN_ID  = '6a0c57806610dd3ae86d77c7';
+const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_ID}`;
+let _syncTimer = null;
+let _lastSyncedAt = null;
 
-function syncToFirebase() {
-  if (!firebaseDB || firebaseConfig.apiKey === 'REPLACE_API_KEY') return;
-  const data = {
-    houses,
-    areaNotes,
-    bankNotes,
-    contacts,
-    financeData,
-    overviewNotes: localStorage.getItem('hs_overview_notes') || '',
-    areasV2: JSON.parse(localStorage.getItem('areas-v2') || 'null'),
-    lastUpdated: new Date().toISOString()
-  };
-  _ownWrite = true;
-  firebaseDB.ref('houseSearch').set(data).then(() => {
-    setTimeout(() => { _ownWrite = false; }, 1000);
-  });
+function syncToJSONBin() {
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(async () => {
+    try {
+      const data = {
+        houses, areaNotes, bankNotes, contacts, financeData,
+        overviewNotes: localStorage.getItem('hs_overview_notes') || '',
+        areasV2: JSON.parse(localStorage.getItem('areas-v2') || 'null'),
+        lastUpdated: new Date().toISOString()
+      };
+      const res = await fetch(JSONBIN_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_KEY },
+        body: JSON.stringify(data)
+      });
+      const json = await res.json();
+      _lastSyncedAt = json.record?.lastUpdated || data.lastUpdated;
+      showSyncBadge('✓ Synced');
+    } catch(e) { showSyncBadge('⚠ Sync failed'); }
+  }, 1200);
 }
 
-function initFirebaseListener() {
-  if (!firebaseDB || firebaseConfig.apiKey === 'REPLACE_API_KEY') return;
-  firebaseDB.ref('houseSearch').on('value', (snapshot) => {
-    if (_ownWrite) return;
-    const data = snapshot.val();
-    if (!data) return;
+async function loadFromJSONBin() {
+  try {
+    const res = await fetch(`${JSONBIN_URL}/latest`, {
+      headers: { 'X-Master-Key': JSONBIN_KEY }
+    });
+    const json = await res.json();
+    const data = json.record;
+    if (!data || data.lastUpdated === _lastSyncedAt) return;
+    _lastSyncedAt = data.lastUpdated;
     if (data.houses) {
       houses = data.houses;
       localStorage.setItem('hs_houses', JSON.stringify(houses));
-      renderHouses();
-      updateOverviewStats();
+      renderHouses(); updateOverviewStats();
     }
-    if (data.areaNotes) { areaNotes = data.areaNotes; localStorage.setItem('hs_areanotes', JSON.stringify(areaNotes)); }
-    if (data.bankNotes) { bankNotes = data.bankNotes; localStorage.setItem('hs_banknotes', JSON.stringify(bankNotes)); loadBankNotes(); }
-    if (data.contacts)  { contacts  = data.contacts;  localStorage.setItem('hs_contacts',  JSON.stringify(contacts));  loadContacts(); }
-    if (data.financeData) { financeData = data.financeData; localStorage.setItem('hs_finance', JSON.stringify(financeData)); loadFinance(); }
+    if (data.areaNotes)   { areaNotes   = data.areaNotes;   localStorage.setItem('hs_areanotes',  JSON.stringify(areaNotes)); }
+    if (data.bankNotes)   { bankNotes   = data.bankNotes;   localStorage.setItem('hs_banknotes',  JSON.stringify(bankNotes)); loadBankNotes(); }
+    if (data.contacts)    { contacts    = data.contacts;    localStorage.setItem('hs_contacts',   JSON.stringify(contacts));  loadContacts(); }
+    if (data.financeData) { financeData = data.financeData; localStorage.setItem('hs_finance',    JSON.stringify(financeData)); loadFinance(); }
     if (data.overviewNotes !== undefined) {
       localStorage.setItem('hs_overview_notes', data.overviewNotes);
       const el = document.getElementById('overview-notes');
       if (el && document.activeElement !== el) el.value = data.overviewNotes;
     }
-    if (data.areasV2) { localStorage.setItem('areas-v2', JSON.stringify(data.areasV2)); }
-  });
+    if (data.areasV2) localStorage.setItem('areas-v2', JSON.stringify(data.areasV2));
+    showSyncBadge('↓ Partner updated');
+  } catch(e) {}
 }
-// ===== END FIREBASE SETUP =====
+
+function showSyncBadge(msg) {
+  let badge = document.getElementById('sync-badge');
+  if (!badge) return;
+  badge.textContent = msg;
+  badge.style.opacity = '1';
+  setTimeout(() => { badge.style.opacity = '0'; }, 3000);
+}
+
+setInterval(loadFromJSONBin, 15000);
+// ===== END JSONBIN SYNC =====
 
 let houses = JSON.parse(localStorage.getItem('hs_houses') || '[]');
 let areaNotes = JSON.parse(localStorage.getItem('hs_areanotes') || '{}');
@@ -1072,7 +1082,7 @@ function saveOverviewNotes() {
 
 function saveTimestamp() {
   localStorage.setItem('hs_last_updated', new Date().toISOString());
-  syncToFirebase();
+  syncToJSONBin();
 }
 
 function openAddHouse() {
@@ -1726,7 +1736,7 @@ loadBankNotes();
 loadContacts();
 updateOverviewStats();
 renderHouses();
-initFirebaseListener();
+loadFromJSONBin();
 </script>
 </body>
 </html>
