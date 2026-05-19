@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Our House Search · Kaunas 2027</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,600;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
   :root {
     --sage: #D6DAC8;
@@ -934,12 +936,96 @@
 </div>
 
 <script>
+// ===== FIREBASE SETUP =====
+// Paste your Firebase config here after creating a project at https://console.firebase.google.com
+const firebaseConfig = {
+  apiKey: "REPLACE_API_KEY",
+  authDomain: "REPLACE_PROJECT_ID.firebaseapp.com",
+  databaseURL: "https://REPLACE_PROJECT_ID-default-rtdb.firebaseio.com",
+  projectId: "REPLACE_PROJECT_ID",
+};
+let firebaseDB = null;
+let _ownWrite = false;
+try {
+  firebase.initializeApp(firebaseConfig);
+  firebaseDB = firebase.database();
+} catch(e) { console.warn('Firebase not configured yet'); }
+
+function syncToFirebase() {
+  if (!firebaseDB || firebaseConfig.apiKey === 'REPLACE_API_KEY') return;
+  const data = {
+    houses,
+    areaNotes,
+    bankNotes,
+    contacts,
+    financeData,
+    overviewNotes: localStorage.getItem('hs_overview_notes') || '',
+    areasV2: JSON.parse(localStorage.getItem('areas-v2') || 'null'),
+    lastUpdated: new Date().toISOString()
+  };
+  _ownWrite = true;
+  firebaseDB.ref('houseSearch').set(data).then(() => {
+    setTimeout(() => { _ownWrite = false; }, 1000);
+  });
+}
+
+function initFirebaseListener() {
+  if (!firebaseDB || firebaseConfig.apiKey === 'REPLACE_API_KEY') return;
+  firebaseDB.ref('houseSearch').on('value', (snapshot) => {
+    if (_ownWrite) return;
+    const data = snapshot.val();
+    if (!data) return;
+    if (data.houses) {
+      houses = data.houses;
+      localStorage.setItem('hs_houses', JSON.stringify(houses));
+      renderHouses();
+      updateOverviewStats();
+    }
+    if (data.areaNotes) { areaNotes = data.areaNotes; localStorage.setItem('hs_areanotes', JSON.stringify(areaNotes)); }
+    if (data.bankNotes) { bankNotes = data.bankNotes; localStorage.setItem('hs_banknotes', JSON.stringify(bankNotes)); loadBankNotes(); }
+    if (data.contacts)  { contacts  = data.contacts;  localStorage.setItem('hs_contacts',  JSON.stringify(contacts));  loadContacts(); }
+    if (data.financeData) { financeData = data.financeData; localStorage.setItem('hs_finance', JSON.stringify(financeData)); loadFinance(); }
+    if (data.overviewNotes !== undefined) {
+      localStorage.setItem('hs_overview_notes', data.overviewNotes);
+      const el = document.getElementById('overview-notes');
+      if (el && document.activeElement !== el) el.value = data.overviewNotes;
+    }
+    if (data.areasV2) { localStorage.setItem('areas-v2', JSON.stringify(data.areasV2)); }
+  });
+}
+// ===== END FIREBASE SETUP =====
+
 let houses = JSON.parse(localStorage.getItem('hs_houses') || '[]');
 let areaNotes = JSON.parse(localStorage.getItem('hs_areanotes') || '{}');
 let bankNotes = JSON.parse(localStorage.getItem('hs_banknotes') || '{}');
 let contacts = JSON.parse(localStorage.getItem('hs_contacts') || '{}');
 let financeData = JSON.parse(localStorage.getItem('hs_finance') || '{}');
 let currentFilter = 'all';
+
+// Seed Miško Ritmu if not already added
+(function seedMiskoRitmu() {
+  const alreadyAdded = houses.some(h => h.link && h.link.includes('miskoritmu.lt'));
+  if (!alreadyAdded) {
+    houses.push({
+      id: 'miskoritmu-' + Date.now(),
+      name: 'Miško Ritmu',
+      link: 'https://miskoritmu.lt',
+      photo: '',
+      area: 'Narėpai',
+      price: '',
+      size: '',
+      plot: '',
+      year: '',
+      type: 'Apartment / New build',
+      notes: '17 years in development. Forest setting, ~10 min from Kaunas center. Near Urban HUB. Designed by Natkevičius, Rimšelis and others. Contact: Raimonda +37064911011, Povilas +37069801170.',
+      pros: 'Forest surroundings, renowned architects, long-term thoughtful planning, near Urban HUB',
+      cons: 'Prices not listed publicly — need to call for info',
+      rating: 0,
+      status: 'considering'
+    });
+    localStorage.setItem('hs_houses', JSON.stringify(houses));
+  }
+})();
 
 function showTab(id, btn) {
   document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
@@ -986,6 +1072,7 @@ function saveOverviewNotes() {
 
 function saveTimestamp() {
   localStorage.setItem('hs_last_updated', new Date().toISOString());
+  syncToFirebase();
 }
 
 function openAddHouse() {
@@ -1002,6 +1089,23 @@ function openAddHouse() {
 
 function closeModal() { document.getElementById('house-modal').classList.remove('open'); }
 function closeDetailModal() { document.getElementById('detail-modal').classList.remove('open'); }
+
+function saveVisitNotes(id, val) {
+  const h = houses.find(h => h.id === id);
+  if (!h) return;
+  h.visitNotes = val;
+  localStorage.setItem('hs_houses', JSON.stringify(houses));
+  saveTimestamp();
+}
+
+function saveVisitField(id, key, val) {
+  const h = houses.find(h => h.id === id);
+  if (!h) return;
+  if (!h.visitFields) h.visitFields = {};
+  h.visitFields[key] = val;
+  localStorage.setItem('hs_houses', JSON.stringify(houses));
+  saveTimestamp();
+}
 
 function saveHouse() {
   const id = document.getElementById('edit-id').value;
@@ -1109,6 +1213,42 @@ function openDetail(id) {
       ${pros ? `<div class="detail-pros"><h4>Pros</h4><ul style="list-style:none;padding:0;">${pros}</ul></div>` : ''}
       ${cons ? `<div class="detail-cons"><h4>Cons</h4><ul style="list-style:none;padding:0;">${cons}</ul></div>` : ''}
     </div>` : ''}
+    <div class="detail-section" style="margin-top:20px;">
+      <h4 style="display:flex;align-items:center;gap:6px;">🗓 Apsilankymo pastabos</h4>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${[
+          { key: 'vn_kaina',       label: 'Kaina už m²' },
+          { key: 'vn_bendra',      label: 'Bendra kaina (€)' },
+          { key: 'vn_orient',      label: 'Buto orientacija (Š/P/R/V)' },
+          { key: 'vn_aukštas',     label: 'Aukštas ir vaizdas pro langus' },
+          { key: 'vn_lubos',       label: 'Lubų aukštis' },
+          { key: 'vn_plotas',      label: 'Buto plotas (m²)' },
+          { key: 'vn_energija',    label: 'Energetinė klasė' },
+          { key: 'vn_sildymas',    label: 'Šildymo sistema' },
+          { key: 'vn_triuksmas',   label: 'Garso izoliacija (įspūdis)' },
+          { key: 'vn_parking',     label: 'Parkavimo situacija' },
+          { key: 'vn_data',        label: 'Perdavimo data' },
+          { key: 'vn_baudos',      label: 'Baudos už vėlavimą (ar yra sutartyje?)' },
+          { key: 'vn_mokestis',    label: 'Namo išlaikymo mokestis (€/mėn)' },
+          { key: 'vn_apdaila',     label: 'Apdailos lygis (įskaičiuota ar ne)' },
+          { key: 'vn_sandėlis',    label: 'Sandėliukas / požeminė stovėjimo vieta' },
+          { key: 'vn_liftas',      label: 'Liftas (ar yra?)' },
+          { key: 'vn_statytojas',  label: 'Statybos bendrovė' },
+          { key: 'vn_rezervacija', label: 'Rezervacijos sąlygos (užstato suma, ar grąžinama?)' },
+          { key: 'vn_derybos',     label: 'Ar galima derėtis dėl kainos?' },
+          { key: 'vn_butai',       label: 'Butų skaičius name' },
+          { key: 'vn_aplinka',     label: 'Kaimynystė ir aplinka (įspūdis)' },
+          { key: 'vn_internetas',  label: 'Interneto / TV infrastruktūra' },
+          { key: 'vn_ispauda',     label: 'Bendras įspūdis' }
+        ].map(f => {
+          const val = (h.visitFields && h.visitFields[f.key]) || '';
+          return `<div style="display:flex;align-items:center;gap:10px;background:var(--cream);border-radius:var(--radius-xs);padding:8px 12px;">
+            <label style="font-size:0.78rem;color:var(--text-light);min-width:220px;flex-shrink:0;">${f.label}</label>
+            <input type="text" value="${val}" placeholder="..." style="flex:1;border:none;border-bottom:1.5px solid var(--border);background:transparent;font-family:'DM Sans',sans-serif;font-size:0.85rem;padding:2px 4px;outline:none;" oninput="saveVisitField('${h.id}','${f.key}',this.value)">
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
     ${h.link ? `<div style="margin-top:18px;"><a href="${h.link}" target="_blank" class="btn btn-secondary btn-sm">Open listing ↗</a></div>` : ''}
   `;
   document.getElementById('detail-edit').onclick = () => editHouse(id);
@@ -1586,6 +1726,7 @@ loadBankNotes();
 loadContacts();
 updateOverviewStats();
 renderHouses();
+initFirebaseListener();
 </script>
 </body>
 </html>
