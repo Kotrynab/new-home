@@ -1004,12 +1004,13 @@
   <!-- Total -->
   <div id="furnishing-total" style="display:none;">
     <div class="card-green" style="margin-top:8px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
         <div>
-          <div style="font-size:0.75rem;opacity:0.7;letter-spacing:0.04em;text-transform:uppercase;">Estimated total</div>
-          <div style="font-family:'Cormorant Garamond',serif;font-size:2.4rem;font-weight:600;color:#fff;" id="furnishing-total-val">—</div>
+          <div style="font-size:0.75rem;opacity:0.7;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:4px;">Total for all rooms</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:2.6rem;font-weight:600;color:#fff;" id="furnishing-total-val">—</div>
+          <div style="font-size:0.78rem;opacity:0.75;margin-top:4px;" id="furnishing-total-range">—</div>
         </div>
-        <div style="font-size:0.78rem;opacity:0.75;max-width:280px;line-height:1.6;">Estimates are based on Lithuanian market prices. Actual costs may vary — get quotes before committing.</div>
+        <div style="font-size:0.76rem;opacity:0.65;max-width:240px;line-height:1.6;">Estimates based on Lithuanian market prices. Get real quotes before committing.</div>
       </div>
     </div>
   </div>
@@ -2003,8 +2004,7 @@ function renderFurnishing() {
   totalWrap.style.display = 'block';
   const total = furnishingRooms.reduce((sum, r) => sum + calcRoomCost(r.type, r.sqm, r.level), 0);
   document.getElementById('furnishing-total-val').textContent = `~${total.toLocaleString()}€`;
-  document.getElementById('furnishing-total').querySelector('.card-green div div:last-child').textContent =
-    `Range: ${grandMin.toLocaleString()}€ (all budget) — ${grandMax.toLocaleString()}€ (all premium). Estimates based on Lithuanian market prices.`;
+  document.getElementById('furnishing-total-range').textContent = `Range: ${grandMin.toLocaleString()}€ (budget) — ${grandMax.toLocaleString()}€ (premium)`;
 }
 
 // Also sync furnishing data to JSONBin
