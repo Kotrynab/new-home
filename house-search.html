@@ -502,6 +502,7 @@
   <button onclick="showTab('checklist',this)">Viewing Checklist</button>
   <button onclick="showTab('finance',this)">Finance</button>
   <button onclick="showTab('resources',this)">Resources</button>
+  <button onclick="showTab('furnishing',this)">Furnishing</button>
 </nav>
 
 <!-- ===== OVERVIEW ===== -->
@@ -952,6 +953,68 @@
   </div>
 </section>
 
+<!-- ===== FURNISHING ===== -->
+<section id="tab-furnishing">
+  <div class="section-header">
+    <div>
+      <h2 class="section-title"><span>Furnishing</span> estimator</h2>
+      <div class="section-subtitle">Add each room, enter m² and finish level — we'll estimate the cost</div>
+    </div>
+  </div>
+
+  <!-- Add room form -->
+  <div class="card-white" style="margin-bottom:20px;">
+    <h3 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1.1rem;color:var(--sage-dark);margin-bottom:16px;">Add a room</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(180px,100%),1fr));gap:12px;align-items:end;">
+      <div class="form-group">
+        <label>Room type</label>
+        <select id="fr-type">
+          <option value="livingroom">Living room</option>
+          <option value="bedroom">Bedroom</option>
+          <option value="kitchen">Kitchen</option>
+          <option value="bathroom">Bathroom</option>
+          <option value="hallway">Hallway</option>
+          <option value="office">Home office</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Room name (optional)</label>
+        <input type="text" id="fr-name" placeholder="e.g. Master bedroom">
+      </div>
+      <div class="form-group">
+        <label>Size (m²)</label>
+        <input type="number" id="fr-sqm" placeholder="e.g. 20" min="1">
+      </div>
+      <div class="form-group">
+        <label>Finish level</label>
+        <select id="fr-level">
+          <option value="budget">Budget</option>
+          <option value="mid" selected>Mid-range</option>
+          <option value="premium">Premium</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="addFurnishingRoom()" style="align-self:end;">+ Add room</button>
+    </div>
+  </div>
+
+  <!-- Rooms list -->
+  <div id="furnishing-rooms"></div>
+
+  <!-- Total -->
+  <div id="furnishing-total" style="display:none;">
+    <div class="card-green" style="margin-top:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="font-size:0.75rem;opacity:0.7;letter-spacing:0.04em;text-transform:uppercase;">Estimated total</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:2.4rem;font-weight:600;color:#fff;" id="furnishing-total-val">—</div>
+        </div>
+        <div style="font-size:0.78rem;opacity:0.75;max-width:280px;line-height:1.6;">Estimates are based on Lithuanian market prices. Actual costs may vary — get quotes before committing.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ===== ADD/EDIT MODAL ===== -->
 <div class="modal-overlay" id="house-modal">
   <div class="modal">
@@ -1016,7 +1079,7 @@ function syncToJSONBin() {
   _syncTimer = setTimeout(async () => {
     try {
       const data = {
-        houses, areaNotes, bankNotes, contacts, financeData,
+        houses, areaNotes, bankNotes, contacts, financeData, furnishingRooms,
         overviewNotes: localStorage.getItem('hs_overview_notes') || '',
         areasV2: JSON.parse(localStorage.getItem('areas-v2') || 'null'),
         lastUpdated: new Date().toISOString()
@@ -1058,6 +1121,7 @@ async function loadFromJSONBin() {
       if (el && document.activeElement !== el) el.value = data.overviewNotes;
     }
     if (data.areasV2) localStorage.setItem('areas-v2', JSON.stringify(data.areasV2));
+    if (data.furnishingRooms) { furnishingRooms = data.furnishingRooms; localStorage.setItem('hs_furnishing', JSON.stringify(furnishingRooms)); renderFurnishing(); }
     showSyncBadge('↓ Partner updated');
   } catch(e) {}
 }
@@ -1792,7 +1856,160 @@ async function tryAutofill(url) {
     else setAutofillBadge('error', 'Could not fetch listing — fill manually');
   }
 }
-// ===== END AUTOFILL =====
+// ===== FURNISHING ESTIMATOR =====
+let furnishingRooms = JSON.parse(localStorage.getItem('hs_furnishing') || '[]');
+
+const FURNISHING_COSTS = {
+  livingroom: {
+    label: '🛋️ Living room',
+    budget:  { furniture: 1800, floors: 18, walls: 7,  lighting: 200 },
+    mid:     { furniture: 4500, floors: 35, walls: 14, lighting: 450 },
+    premium: { furniture: 10000,floors: 70, walls: 28, lighting: 900 }
+  },
+  bedroom: {
+    label: '🛏️ Bedroom',
+    budget:  { furniture: 1200, floors: 18, walls: 7,  lighting: 120 },
+    mid:     { furniture: 3000, floors: 35, walls: 14, lighting: 280 },
+    premium: { furniture: 7000, floors: 70, walls: 28, lighting: 600 }
+  },
+  kitchen: {
+    label: '🍳 Kitchen',
+    budget:  { furniture: 2500, floors: 22, walls: 12, lighting: 200 },
+    mid:     { furniture: 6000, floors: 40, walls: 22, lighting: 400 },
+    premium: { furniture: 14000,floors: 80, walls: 45, lighting: 800 }
+  },
+  bathroom: {
+    label: '🚿 Bathroom',
+    budget:  { furniture: 1800, floors: 35, walls: 35, lighting: 150 },
+    mid:     { furniture: 3500, floors: 65, walls: 65, lighting: 300 },
+    premium: { furniture: 7000, floors: 130,walls: 130,lighting: 600 }
+  },
+  hallway: {
+    label: '🚪 Hallway',
+    budget:  { furniture: 400,  floors: 22, walls: 8,  lighting: 80  },
+    mid:     { furniture: 900,  floors: 40, walls: 16, lighting: 180 },
+    premium: { furniture: 2000, floors: 80, walls: 32, lighting: 350 }
+  },
+  office: {
+    label: '💻 Home office',
+    budget:  { furniture: 800,  floors: 18, walls: 7,  lighting: 150 },
+    mid:     { furniture: 2000, floors: 35, walls: 14, lighting: 300 },
+    premium: { furniture: 5000, floors: 70, walls: 28, lighting: 600 }
+  },
+  other: {
+    label: '📦 Other room',
+    budget:  { furniture: 500,  floors: 18, walls: 7,  lighting: 80  },
+    mid:     { furniture: 1500, floors: 35, walls: 14, lighting: 180 },
+    premium: { furniture: 3500, floors: 70, walls: 28, lighting: 350 }
+  }
+};
+
+const LEVEL_LABELS = { budget: 'Budget', mid: 'Mid-range', premium: 'Premium' };
+const LEVEL_COLORS = { budget: '#7A9A60', mid: '#4E5F2E', premium: '#2A3A14' };
+
+function calcRoomCost(type, sqm, level) {
+  const c = FURNISHING_COSTS[type][level];
+  return Math.round(c.furniture + (c.floors + c.walls) * sqm + c.lighting);
+}
+
+function addFurnishingRoom() {
+  const type  = document.getElementById('fr-type').value;
+  const name  = document.getElementById('fr-name').value.trim();
+  const sqm   = parseFloat(document.getElementById('fr-sqm').value);
+  const level = document.getElementById('fr-level').value;
+  if (!sqm || sqm <= 0) { alert('Please enter the room size in m²'); return; }
+  furnishingRooms.push({ id: Date.now().toString(), type, name, sqm, level });
+  saveFurnishing();
+  document.getElementById('fr-name').value = '';
+  document.getElementById('fr-sqm').value  = '';
+  renderFurnishing();
+}
+
+function removeFurnishingRoom(id) {
+  furnishingRooms = furnishingRooms.filter(r => r.id !== id);
+  saveFurnishing();
+  renderFurnishing();
+}
+
+function updateFurnishingLevel(id, level) {
+  const r = furnishingRooms.find(r => r.id === id);
+  if (r) { r.level = level; saveFurnishing(); renderFurnishing(); }
+}
+
+function saveFurnishing() {
+  localStorage.setItem('hs_furnishing', JSON.stringify(furnishingRooms));
+  saveTimestamp();
+}
+
+function renderFurnishing() {
+  const wrap = document.getElementById('furnishing-rooms');
+  const totalWrap = document.getElementById('furnishing-total');
+  if (!furnishingRooms.length) { wrap.innerHTML = ''; totalWrap.style.display = 'none'; return; }
+
+  let grandMin = 0, grandMax = 0;
+  wrap.innerHTML = furnishingRooms.map(r => {
+    const costs = FURNISHING_COSTS[r.type];
+    const label = r.name || costs.label;
+    const costMin = calcRoomCost(r.type, r.sqm, 'budget');
+    const costMid = calcRoomCost(r.type, r.sqm, 'mid');
+    const costMax = calcRoomCost(r.type, r.sqm, 'premium');
+    const current = calcRoomCost(r.type, r.sqm, r.level);
+    grandMin += costMin; grandMax += costMax;
+    const c = FURNISHING_COSTS[r.type][r.level];
+    return `
+    <div class="card-white" style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+        <div>
+          <div style="font-weight:600;font-size:0.95rem;">${label}</div>
+          <div style="font-size:0.76rem;color:var(--text-light);margin-top:2px;">${r.sqm} m²</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:600;color:var(--sage-dark);">~${current.toLocaleString()}€</div>
+          <button onclick="removeFurnishingRoom('${r.id}')" style="background:#F5D5D5;color:#9A3030;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:0.85rem;">×</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
+        ${['budget','mid','premium'].map(l => `
+          <button onclick="updateFurnishingLevel('${r.id}','${l}')"
+            style="padding:5px 14px;border-radius:99px;border:1.5px solid ${r.level===l ? LEVEL_COLORS[l] : 'var(--border)'};
+            background:${r.level===l ? LEVEL_COLORS[l] : 'transparent'};
+            color:${r.level===l ? '#fff' : 'var(--text-mid)'};
+            font-family:'DM Sans',sans-serif;font-size:0.75rem;cursor:pointer;">
+            ${LEVEL_LABELS[l]}
+          </button>`).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(130px,100%),1fr));gap:8px;">
+        <div style="background:var(--cream);border-radius:var(--radius-xs);padding:8px 10px;font-size:0.76rem;">
+          <div style="color:var(--text-light);margin-bottom:2px;">Furniture</div>
+          <div style="font-weight:600;">~${c.furniture.toLocaleString()}€</div>
+        </div>
+        <div style="background:var(--cream);border-radius:var(--radius-xs);padding:8px 10px;font-size:0.76rem;">
+          <div style="color:var(--text-light);margin-bottom:2px;">Floors</div>
+          <div style="font-weight:600;">~${Math.round(c.floors * r.sqm).toLocaleString()}€</div>
+        </div>
+        <div style="background:var(--cream);border-radius:var(--radius-xs);padding:8px 10px;font-size:0.76rem;">
+          <div style="color:var(--text-light);margin-bottom:2px;">Walls</div>
+          <div style="font-weight:600;">~${Math.round(c.walls * r.sqm).toLocaleString()}€</div>
+        </div>
+        <div style="background:var(--cream);border-radius:var(--radius-xs);padding:8px 10px;font-size:0.76rem;">
+          <div style="color:var(--text-light);margin-bottom:2px;">Lighting</div>
+          <div style="font-weight:600;">~${c.lighting.toLocaleString()}€</div>
+        </div>
+      </div>
+      <div style="font-size:0.72rem;color:var(--text-light);margin-top:10px;">Range: ${costMin.toLocaleString()}€ (budget) — ${costMax.toLocaleString()}€ (premium)</div>
+    </div>`;
+  }).join('');
+
+  totalWrap.style.display = 'block';
+  const total = furnishingRooms.reduce((sum, r) => sum + calcRoomCost(r.type, r.sqm, r.level), 0);
+  document.getElementById('furnishing-total-val').textContent = `~${total.toLocaleString()}€`;
+  document.getElementById('furnishing-total').querySelector('.card-green div div:last-child').textContent =
+    `Range: ${grandMin.toLocaleString()}€ (all budget) — ${grandMax.toLocaleString()}€ (all premium). Estimates based on Lithuanian market prices.`;
+}
+
+// Also sync furnishing data to JSONBin
+const _origSyncToJSONBin = syncToJSONBin;
+// ===== END FURNISHING ESTIMATOR =====
 
 document.getElementById('house-modal').addEventListener('click', function(e) { if (e.target===this) closeModal(); });
 document.getElementById('detail-modal').addEventListener('click', function(e) { if (e.target===this) closeDetailModal(); });
@@ -1804,6 +2021,7 @@ loadBankNotes();
 loadContacts();
 updateOverviewStats();
 renderHouses();
+renderFurnishing();
 // On startup always load from JSONBin first, then keep polling for partner changes
 loadFromJSONBin();
 </script>
