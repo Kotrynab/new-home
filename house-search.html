@@ -958,55 +958,35 @@
   <div class="section-header">
     <div>
       <h2 class="section-title"><span>Furnishing</span> estimator</h2>
-      <div class="section-subtitle">Add each room, enter m² and finish level — we'll estimate the cost</div>
+      <div class="section-subtitle">Tick what you plan to buy per room — total updates instantly</div>
     </div>
   </div>
 
-  <!-- Add room form -->
+  <!-- Floor plan -->
+  <div class="card-white" style="margin-bottom:20px;text-align:center;">
+    <div style="font-size:0.7rem;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;">Floor plan · Apartment 201</div>
+    <img src="c_201-1.jpg" alt="Floor plan" style="max-width:320px;width:100%;border-radius:var(--radius-sm);">
+  </div>
+
+  <!-- Level selector -->
   <div class="card-white" style="margin-bottom:20px;">
-    <h3 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1.1rem;color:var(--sage-dark);margin-bottom:16px;">Add a room</h3>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(180px,100%),1fr));gap:12px;align-items:end;">
-      <div class="form-group">
-        <label>Room type</label>
-        <select id="fr-type">
-          <option value="livingroom">Living room</option>
-          <option value="bedroom">Bedroom</option>
-          <option value="kitchen">Kitchen</option>
-          <option value="bathroom">Bathroom</option>
-          <option value="hallway">Hallway</option>
-          <option value="office">Home office</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Room name (optional)</label>
-        <input type="text" id="fr-name" placeholder="e.g. Master bedroom">
-      </div>
-      <div class="form-group">
-        <label>Size (m²)</label>
-        <input type="number" id="fr-sqm" placeholder="e.g. 20" min="1">
-      </div>
-      <div class="form-group">
-        <label>Finish level</label>
-        <select id="fr-level">
-          <option value="budget">Budget</option>
-          <option value="mid" selected>Mid-range</option>
-          <option value="premium">Premium</option>
-        </select>
-      </div>
-      <button class="btn btn-primary" onclick="addFurnishingRoom()" style="align-self:end;">+ Add room</button>
+    <div style="font-size:0.75rem;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px;">Finish level for all rooms</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button onclick="setAllLevels('budget')"  id="fl-budget"  style="padding:7px 20px;border-radius:99px;border:1.5px solid var(--border);background:transparent;font-family:'DM Sans',sans-serif;font-size:0.8rem;cursor:pointer;color:var(--text-mid);">Budget</button>
+      <button onclick="setAllLevels('mid')"     id="fl-mid"     style="padding:7px 20px;border-radius:99px;border:1.5px solid var(--sage-dark);background:var(--sage-dark);font-family:'DM Sans',sans-serif;font-size:0.8rem;cursor:pointer;color:#fff;">Mid-range</button>
+      <button onclick="setAllLevels('premium')" id="fl-premium" style="padding:7px 20px;border-radius:99px;border:1.5px solid var(--border);background:transparent;font-family:'DM Sans',sans-serif;font-size:0.8rem;cursor:pointer;color:var(--text-mid);">Premium</button>
     </div>
   </div>
 
-  <!-- Rooms list -->
+  <!-- Rooms -->
   <div id="furnishing-rooms"></div>
 
   <!-- Total -->
-  <div id="furnishing-total" style="display:none;">
+  <div id="furnishing-total">
     <div class="card-green" style="margin-top:8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
         <div>
-          <div style="font-size:0.75rem;opacity:0.7;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:4px;">Total for all rooms</div>
+          <div style="font-size:0.75rem;opacity:0.7;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:4px;">Total selected items</div>
           <div style="font-family:'Cormorant Garamond',serif;font-size:2.6rem;font-weight:600;color:#fff;" id="furnishing-total-val">—</div>
           <div style="font-size:0.78rem;opacity:0.75;margin-top:4px;" id="furnishing-total-range">—</div>
         </div>
@@ -1080,7 +1060,7 @@ function syncToJSONBin() {
   _syncTimer = setTimeout(async () => {
     try {
       const data = {
-        houses, areaNotes, bankNotes, contacts, financeData, furnishingRooms,
+        houses, areaNotes, bankNotes, contacts, financeData, furnishingData,
         overviewNotes: localStorage.getItem('hs_overview_notes') || '',
         areasV2: JSON.parse(localStorage.getItem('areas-v2') || 'null'),
         lastUpdated: new Date().toISOString()
@@ -1122,7 +1102,7 @@ async function loadFromJSONBin() {
       if (el && document.activeElement !== el) el.value = data.overviewNotes;
     }
     if (data.areasV2) localStorage.setItem('areas-v2', JSON.stringify(data.areasV2));
-    if (data.furnishingRooms) { furnishingRooms = data.furnishingRooms; localStorage.setItem('hs_furnishing', JSON.stringify(furnishingRooms)); renderFurnishing(); }
+    if (data.furnishingData) { furnishingData = data.furnishingData; localStorage.setItem('hs_furnishing2', JSON.stringify(furnishingData)); renderFurnishing(); }
     showSyncBadge('↓ Partner updated');
   } catch(e) {}
 }
@@ -1858,157 +1838,175 @@ async function tryAutofill(url) {
   }
 }
 // ===== FURNISHING ESTIMATOR =====
-let furnishingRooms = JSON.parse(localStorage.getItem('hs_furnishing') || '[]');
-
-const FURNISHING_COSTS = {
-  livingroom: {
-    label: '🛋️ Living room',
-    budget:  { furniture: 1800, floors: 18, walls: 7,  lighting: 200 },
-    mid:     { furniture: 4500, floors: 35, walls: 14, lighting: 450 },
-    premium: { furniture: 10000,floors: 70, walls: 28, lighting: 900 }
-  },
-  bedroom: {
-    label: '🛏️ Bedroom',
-    budget:  { furniture: 1200, floors: 18, walls: 7,  lighting: 120 },
-    mid:     { furniture: 3000, floors: 35, walls: 14, lighting: 280 },
-    premium: { furniture: 7000, floors: 70, walls: 28, lighting: 600 }
-  },
-  kitchen: {
-    label: '🍳 Kitchen',
-    budget:  { furniture: 2500, floors: 22, walls: 12, lighting: 200 },
-    mid:     { furniture: 6000, floors: 40, walls: 22, lighting: 400 },
-    premium: { furniture: 14000,floors: 80, walls: 45, lighting: 800 }
+const ROOM_FURNITURE = {
+  livingkitchen: {
+    label: '🛋️ Living / Dining / Kitchen',
+    sqm: 25.97,
+    items: [
+      { id: 'sofa',          label: 'Sofa',                        budget: 450,   mid: 950,   premium: 2200  },
+      { id: 'coffeeTable',   label: 'Coffee table',                budget: 80,    mid: 200,   premium: 450   },
+      { id: 'tvUnit',        label: 'TV unit',                     budget: 150,   mid: 350,   premium: 750   },
+      { id: 'tv',            label: 'TV (65")',                    budget: 500,   mid: 900,   premium: 1800  },
+      { id: 'diningTable',   label: 'Dining table',                budget: 200,   mid: 500,   premium: 1000  },
+      { id: 'diningChairs',  label: 'Dining chairs ×4',            budget: 200,   mid: 450,   premium: 1000  },
+      { id: 'kitchen',       label: 'Kitchen cabinets + countertop', budget: 2500, mid: 6000, premium: 14000 },
+      { id: 'fridge',        label: 'Fridge',                      budget: 400,   mid: 700,   premium: 1500  },
+      { id: 'oven',          label: 'Oven',                        budget: 250,   mid: 500,   premium: 1200  },
+      { id: 'dishwasher',    label: 'Dishwasher',                  budget: 300,   mid: 600,   premium: 1200  },
+      { id: 'microwave',     label: 'Microwave',                   budget: 80,    mid: 150,   premium: 350   },
+      { id: 'curtains',      label: 'Curtains / blinds',           budget: 200,   mid: 450,   premium: 900   },
+      { id: 'lighting',      label: 'Lighting',                    budget: 150,   mid: 400,   premium: 900   },
+    ]
   },
   bathroom: {
     label: '🚿 Bathroom',
-    budget:  { furniture: 1800, floors: 35, walls: 35, lighting: 150 },
-    mid:     { furniture: 3500, floors: 65, walls: 65, lighting: 300 },
-    premium: { furniture: 7000, floors: 130,walls: 130,lighting: 600 }
+    sqm: 6.16,
+    items: [
+      { id: 'bathtub',       label: 'Bathtub',                     budget: 300,   mid: 650,   premium: 1600  },
+      { id: 'toilet',        label: 'Toilet',                      budget: 150,   mid: 380,   premium: 850   },
+      { id: 'sink',          label: 'Sink + vanity unit',          budget: 200,   mid: 480,   premium: 1100  },
+      { id: 'mirror',        label: 'Mirror + cabinet',            budget: 80,    mid: 220,   premium: 550   },
+      { id: 'towelRail',     label: 'Heated towel rail',           budget: 80,    mid: 200,   premium: 500   },
+      { id: 'shower',        label: 'Shower screen',               budget: 200,   mid: 480,   premium: 1100  },
+      { id: 'tiles',         label: 'Tiles (floor + walls)',       budget: 600,   mid: 1200,  premium: 2500  },
+      { id: 'lighting',      label: 'Lighting',                    budget: 60,    mid: 150,   premium: 380   },
+    ]
+  },
+  bedroom1: {
+    label: '🛏️ Bedroom 1',
+    sqm: 15.66,
+    items: [
+      { id: 'bedFrame',      label: 'Bed frame (double)',          budget: 280,   mid: 650,   premium: 1600  },
+      { id: 'mattress',      label: 'Mattress',                    budget: 300,   mid: 750,   premium: 1900  },
+      { id: 'wardrobe',      label: 'Wardrobe',                    budget: 450,   mid: 950,   premium: 2400  },
+      { id: 'bedsideTables', label: 'Bedside tables ×2',          budget: 100,   mid: 260,   premium: 650   },
+      { id: 'dresser',       label: 'Dresser / chest of drawers',  budget: 150,   mid: 380,   premium: 900   },
+      { id: 'curtains',      label: 'Curtains / blinds',           budget: 100,   mid: 250,   premium: 550   },
+      { id: 'lighting',      label: 'Lighting',                    budget: 80,    mid: 200,   premium: 500   },
+    ]
+  },
+  bedroom2: {
+    label: '🛏️ Bedroom 2',
+    sqm: 11.16,
+    items: [
+      { id: 'bedFrame',      label: 'Bed frame',                   budget: 200,   mid: 480,   premium: 1200  },
+      { id: 'mattress',      label: 'Mattress',                    budget: 200,   mid: 550,   premium: 1300  },
+      { id: 'wardrobe',      label: 'Wardrobe',                    budget: 320,   mid: 750,   premium: 1800  },
+      { id: 'bedsideTable',  label: 'Bedside table',               budget: 50,    mid: 160,   premium: 380   },
+      { id: 'desk',          label: 'Desk + chair',                budget: 150,   mid: 400,   premium: 950   },
+      { id: 'curtains',      label: 'Curtains / blinds',           budget: 70,    mid: 180,   premium: 420   },
+      { id: 'lighting',      label: 'Lighting',                    budget: 60,    mid: 160,   premium: 400   },
+    ]
+  },
+  dressingroom: {
+    label: '👗 Dressing room',
+    sqm: 5.43,
+    items: [
+      { id: 'wardrobeSystem', label: 'Wardrobe / shelving system', budget: 450,   mid: 1000,  premium: 2400  },
+      { id: 'mirror',         label: 'Full-length mirror',         budget: 50,    mid: 160,   premium: 450   },
+      { id: 'hooks',          label: 'Hooks + organizers',         budget: 30,    mid: 90,    premium: 220   },
+      { id: 'lighting',       label: 'Lighting',                   budget: 40,    mid: 100,   premium: 280   },
+    ]
   },
   hallway: {
     label: '🚪 Hallway',
-    budget:  { furniture: 400,  floors: 22, walls: 8,  lighting: 80  },
-    mid:     { furniture: 900,  floors: 40, walls: 16, lighting: 180 },
-    premium: { furniture: 2000, floors: 80, walls: 32, lighting: 350 }
-  },
-  office: {
-    label: '💻 Home office',
-    budget:  { furniture: 800,  floors: 18, walls: 7,  lighting: 150 },
-    mid:     { furniture: 2000, floors: 35, walls: 14, lighting: 300 },
-    premium: { furniture: 5000, floors: 70, walls: 28, lighting: 600 }
-  },
-  other: {
-    label: '📦 Other room',
-    budget:  { furniture: 500,  floors: 18, walls: 7,  lighting: 80  },
-    mid:     { furniture: 1500, floors: 35, walls: 14, lighting: 180 },
-    premium: { furniture: 3500, floors: 70, walls: 28, lighting: 350 }
+    sqm: 2.38,
+    items: [
+      { id: 'shoeCabinet',   label: 'Shoe cabinet',                budget: 80,    mid: 220,   premium: 550   },
+      { id: 'coatRack',      label: 'Coat rack / hooks',           budget: 30,    mid: 90,    premium: 220   },
+      { id: 'mirror',        label: 'Mirror',                      budget: 40,    mid: 110,   premium: 320   },
+      { id: 'bench',         label: 'Hallway bench',               budget: 60,    mid: 160,   premium: 420   },
+      { id: 'lighting',      label: 'Lighting',                    budget: 40,    mid: 100,   premium: 260   },
+    ]
   }
 };
 
-const LEVEL_LABELS = { budget: 'Budget', mid: 'Mid-range', premium: 'Premium' };
-const LEVEL_COLORS = { budget: '#7A9A60', mid: '#4E5F2E', premium: '#2A3A14' };
+const DEFAULT_CHECKED = {
+  livingkitchen: ['sofa','coffeeTable','tvUnit','tv','diningTable','diningChairs','kitchen','fridge','oven','curtains','lighting'],
+  bathroom:      ['bathtub','toilet','sink','mirror','towelRail','tiles','lighting'],
+  bedroom1:      ['bedFrame','mattress','wardrobe','bedsideTables','curtains','lighting'],
+  bedroom2:      ['bedFrame','mattress','wardrobe','bedsideTable','curtains','lighting'],
+  dressingroom:  ['wardrobeSystem','mirror','lighting'],
+  hallway:       ['shoeCabinet','coatRack','mirror']
+};
 
-function calcRoomCost(type, sqm, level) {
-  const c = FURNISHING_COSTS[type][level];
-  return Math.round(c.furniture + (c.floors + c.walls) * sqm + c.lighting);
+let furnishingData = JSON.parse(localStorage.getItem('hs_furnishing2') || 'null') || initFurnishingData();
+
+function initFurnishingData() {
+  const data = { level: 'mid', rooms: {} };
+  Object.keys(ROOM_FURNITURE).forEach(type => {
+    data.rooms[type] = { checked: {} };
+    (DEFAULT_CHECKED[type] || []).forEach(id => { data.rooms[type].checked[id] = true; });
+  });
+  return data;
 }
 
-function addFurnishingRoom() {
-  const type  = document.getElementById('fr-type').value;
-  const name  = document.getElementById('fr-name').value.trim();
-  const sqm   = parseFloat(document.getElementById('fr-sqm').value);
-  const level = document.getElementById('fr-level').value;
-  if (!sqm || sqm <= 0) { alert('Please enter the room size in m²'); return; }
-  furnishingRooms.push({ id: Date.now().toString(), type, name, sqm, level });
+function setAllLevels(level) {
+  furnishingData.level = level;
   saveFurnishing();
-  document.getElementById('fr-name').value = '';
-  document.getElementById('fr-sqm').value  = '';
   renderFurnishing();
 }
 
-function removeFurnishingRoom(id) {
-  furnishingRooms = furnishingRooms.filter(r => r.id !== id);
+function toggleFurnishingItem(type, itemId, checked) {
+  furnishingData.rooms[type].checked[itemId] = checked;
   saveFurnishing();
   renderFurnishing();
-}
-
-function updateFurnishingLevel(id, level) {
-  const r = furnishingRooms.find(r => r.id === id);
-  if (r) { r.level = level; saveFurnishing(); renderFurnishing(); }
 }
 
 function saveFurnishing() {
-  localStorage.setItem('hs_furnishing', JSON.stringify(furnishingRooms));
+  localStorage.setItem('hs_furnishing2', JSON.stringify(furnishingData));
   saveTimestamp();
 }
 
 function renderFurnishing() {
   const wrap = document.getElementById('furnishing-rooms');
-  const totalWrap = document.getElementById('furnishing-total');
-  if (!furnishingRooms.length) { wrap.innerHTML = ''; totalWrap.style.display = 'none'; return; }
+  const level = furnishingData.level || 'mid';
 
-  let grandMin = 0, grandMax = 0;
-  wrap.innerHTML = furnishingRooms.map(r => {
-    const costs = FURNISHING_COSTS[r.type];
-    const label = r.name || costs.label;
-    const costMin = calcRoomCost(r.type, r.sqm, 'budget');
-    const costMid = calcRoomCost(r.type, r.sqm, 'mid');
-    const costMax = calcRoomCost(r.type, r.sqm, 'premium');
-    const current = calcRoomCost(r.type, r.sqm, r.level);
-    grandMin += costMin; grandMax += costMax;
-    const c = FURNISHING_COSTS[r.type][r.level];
-    return `
-    <div class="card-white" style="margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+  // Update level buttons
+  ['budget','mid','premium'].forEach(l => {
+    const btn = document.getElementById('fl-' + l);
+    if (!btn) return;
+    btn.style.background = l === level ? 'var(--sage-dark)' : 'transparent';
+    btn.style.color = l === level ? '#fff' : 'var(--text-mid)';
+    btn.style.borderColor = l === level ? 'var(--sage-dark)' : 'var(--border)';
+  });
+
+  let grandTotal = 0;
+  let grandBudget = 0;
+  let grandPremium = 0;
+
+  wrap.innerHTML = Object.entries(ROOM_FURNITURE).map(([type, room]) => {
+    const checked = furnishingData.rooms[type]?.checked || {};
+    let roomTotal = 0, roomBudget = 0, roomPremium = 0;
+    room.items.forEach(item => {
+      if (checked[item.id]) { roomTotal += item[level]; roomBudget += item.budget; roomPremium += item.premium; }
+    });
+    grandTotal += roomTotal; grandBudget += roomBudget; grandPremium += roomPremium;
+
+    const itemsHtml = room.items.map(item => `
+      <label style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.05);cursor:pointer;gap:8px;">
+        <span style="display:flex;align-items:center;gap:8px;font-size:0.84rem;color:${checked[item.id] ? 'var(--text)' : 'var(--text-light)'};">
+          <input type="checkbox" ${checked[item.id] ? 'checked' : ''} onchange="toggleFurnishingItem('${type}','${item.id}',this.checked)" style="accent-color:var(--sage-dark);width:15px;height:15px;flex-shrink:0;">
+          ${item.label}
+        </span>
+        <span style="font-size:0.82rem;font-weight:600;color:${checked[item.id] ? 'var(--sage-dark)' : 'var(--border)'};white-space:nowrap;">~${item[level].toLocaleString()}€</span>
+      </label>`).join('');
+
+    return `<div class="card-white" style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
         <div>
-          <div style="font-weight:600;font-size:0.95rem;">${label}</div>
-          <div style="font-size:0.76rem;color:var(--text-light);margin-top:2px;">${r.sqm} m²</div>
+          <div style="font-weight:600;font-size:0.95rem;">${room.label}</div>
+          <div style="font-size:0.75rem;color:var(--text-light);margin-top:2px;">${room.sqm} m²</div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:600;color:var(--sage-dark);">~${current.toLocaleString()}€</div>
-          <button onclick="removeFurnishingRoom('${r.id}')" style="background:#F5D5D5;color:#9A3030;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:0.85rem;">×</button>
-        </div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:600;color:var(--sage-dark);">~${roomTotal.toLocaleString()}€</div>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
-        ${['budget','mid','premium'].map(l => `
-          <button onclick="updateFurnishingLevel('${r.id}','${l}')"
-            style="padding:5px 14px;border-radius:99px;border:1.5px solid ${r.level===l ? LEVEL_COLORS[l] : 'var(--border)'};
-            background:${r.level===l ? LEVEL_COLORS[l] : 'transparent'};
-            color:${r.level===l ? '#fff' : 'var(--text-mid)'};
-            font-family:'DM Sans',sans-serif;font-size:0.75rem;cursor:pointer;">
-            ${LEVEL_LABELS[l]}
-          </button>`).join('')}
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(130px,100%),1fr));gap:8px;">
-        <div style="background:var(--cream);border-radius:var(--radius-xs);padding:8px 10px;font-size:0.76rem;">
-          <div style="color:var(--text-light);margin-bottom:2px;">Furniture</div>
-          <div style="font-weight:600;">~${c.furniture.toLocaleString()}€</div>
-        </div>
-        <div style="background:var(--cream);border-radius:var(--radius-xs);padding:8px 10px;font-size:0.76rem;">
-          <div style="color:var(--text-light);margin-bottom:2px;">Floors</div>
-          <div style="font-weight:600;">~${Math.round(c.floors * r.sqm).toLocaleString()}€</div>
-        </div>
-        <div style="background:var(--cream);border-radius:var(--radius-xs);padding:8px 10px;font-size:0.76rem;">
-          <div style="color:var(--text-light);margin-bottom:2px;">Walls</div>
-          <div style="font-weight:600;">~${Math.round(c.walls * r.sqm).toLocaleString()}€</div>
-        </div>
-        <div style="background:var(--cream);border-radius:var(--radius-xs);padding:8px 10px;font-size:0.76rem;">
-          <div style="color:var(--text-light);margin-bottom:2px;">Lighting</div>
-          <div style="font-weight:600;">~${c.lighting.toLocaleString()}€</div>
-        </div>
-      </div>
-      <div style="font-size:0.72rem;color:var(--text-light);margin-top:10px;">Range: ${costMin.toLocaleString()}€ (budget) — ${costMax.toLocaleString()}€ (premium)</div>
+      ${itemsHtml}
     </div>`;
   }).join('');
 
-  totalWrap.style.display = 'block';
-  const total = furnishingRooms.reduce((sum, r) => sum + calcRoomCost(r.type, r.sqm, r.level), 0);
-  document.getElementById('furnishing-total-val').textContent = `~${total.toLocaleString()}€`;
-  document.getElementById('furnishing-total-range').textContent = `Range: ${grandMin.toLocaleString()}€ (budget) — ${grandMax.toLocaleString()}€ (premium)`;
+  document.getElementById('furnishing-total-val').textContent = `~${grandTotal.toLocaleString()}€`;
+  document.getElementById('furnishing-total-range').textContent = `Range: ${grandBudget.toLocaleString()}€ (budget) — ${grandPremium.toLocaleString()}€ (premium)`;
 }
-
-// Also sync furnishing data to JSONBin
-const _origSyncToJSONBin = syncToJSONBin;
 // ===== END FURNISHING ESTIMATOR =====
 
 document.getElementById('house-modal').addEventListener('click', function(e) { if (e.target===this) closeModal(); });
