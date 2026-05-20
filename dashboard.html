@@ -501,36 +501,34 @@
         <a class="nav-item active" data-section="dashboard">
             <span class="nav-icon">⊞</span> Dashboard
         </a>
-        <a class="nav-item" data-section="clients">
-            <span class="nav-icon">◉</span> Clients
-            <span class="nav-badge" id="nav-clients-count">0</span>
-        </a>
         <a class="nav-item" data-section="projects">
-            <span class="nav-icon">◈</span> Projects
+            <span class="nav-icon">◈</span> Tasks
             <span class="nav-badge" id="nav-projects-count">0</span>
         </a>
         <a class="nav-item" data-section="tasks">
-            <span class="nav-icon">✓</span> Tasks
+            <span class="nav-icon">✓</span> Timeline
             <span class="nav-badge" id="nav-tasks-count">0</span>
-        </a>
-        <a class="nav-item" data-section="invoices">
-            <span class="nav-icon">◧</span> Invoices
-            <span class="nav-badge" id="nav-invoices-count">0</span>
         </a>
         <a class="nav-item" data-section="worklog">
             <span class="nav-icon">▤</span> Work Log
         </a>
-        <a class="nav-item" data-section="expenses">
-            <span class="nav-icon">↓</span> Expenses
+        <a class="nav-item" data-section="invoices">
+            <span class="nav-icon">◧</span> Invoices
+        </a>
+        <a class="nav-item" data-section="clients">
+            <span class="nav-icon">◉</span> Clients
         </a>
         <a class="nav-item" data-section="rates">
             <span class="nav-icon">€</span> Rates
         </a>
-        <a class="nav-item" data-section="notes">
-            <span class="nav-icon">✎</span> Notes
+        <a class="nav-item" data-section="expenses">
+            <span class="nav-icon">↓</span> Expenses
         </a>
         <a class="nav-item" data-section="goals">
             <span class="nav-icon">◎</span> Goals
+        </a>
+        <a class="nav-item" data-section="notes">
+            <span class="nav-icon">✎</span> Notes
         </a>
     </nav>
 </aside>
@@ -568,7 +566,7 @@
         <div class="content-grid">
             <div class="card">
                 <div class="card-header">
-                    <div class="card-title">Upcoming Tasks</div>
+                    <div class="card-title">Tasks</div>
                     <button class="card-link" data-section="tasks">View all</button>
                 </div>
                 <div id="dash-tasks"></div>
@@ -607,9 +605,9 @@
     <section class="section" id="projects">
         <div class="page-header">
             <div>
-                <div class="page-title">Projects</div>
+                <div class="page-title">Tasks</div>
             </div>
-            <button class="btn btn-primary" onclick="openModal('project-modal')">+ New Project</button>
+            <button class="btn btn-primary" onclick="resetProjectModal(); openModal('project-modal')">+ New Project</button>
         </div>
         <div id="projects-summary"></div>
         <div id="projects-list"></div>
@@ -619,7 +617,7 @@
     <section class="section" id="tasks">
         <div class="page-header">
             <div>
-                <div class="page-title">Tasks</div>
+                <div class="page-title">Timeline</div>
             </div>
             <div style="display:flex;gap:12px;align-items:center">
                 <button class="btn btn-primary" onclick="openModal('task-modal')">+ Add Task</button>
@@ -930,7 +928,8 @@
 <div class="modal-overlay" id="project-modal">
     <div class="modal">
         <button class="modal-close" onclick="closeModal('project-modal')">✕</button>
-        <div class="modal-title">New Project</div>
+        <div class="modal-title" id="project-modal-title">New Project</div>
+        <input type="hidden" id="p-edit-id" value="">
         <div class="form-group">
             <label class="form-label">Project Name</label>
             <input class="form-input" id="p-name" placeholder="e.g. Meta Ads – March">
@@ -955,9 +954,44 @@
                 <input class="form-input" id="p-price" type="number" placeholder="0">
             </div>
         </div>
-        <div class="form-group">
-            <label class="form-label">Month</label>
-            <input class="form-input" id="p-month" type="month">
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Month</label>
+                <select class="form-select" id="p-month-name">
+                    <option value="">— Select month —</option>
+                    <option value="01">January</option>
+                    <option value="02">February</option>
+                    <option value="03">March</option>
+                    <option value="04">April</option>
+                    <option value="05">May</option>
+                    <option value="06">June</option>
+                    <option value="07">July</option>
+                    <option value="08">August</option>
+                    <option value="09">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Year</label>
+                <select class="form-select" id="p-month-year">
+                    <option value="2024">2024</option>
+                    <option value="2025" selected>2025</option>
+                    <option value="2026">2026</option>
+                    <option value="2027">2027</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Start Date</label>
+                <input class="form-input" id="p-start" type="date">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Deadline</label>
+                <input class="form-input" id="p-deadline" type="date">
+            </div>
         </div>
         <div class="form-row">
             <div class="form-group">
@@ -973,14 +1007,10 @@
                     <option value="paid">Paid</option>
                 </select>
             </div>
-            <div class="form-group">
-                <label class="form-label">Deadline</label>
-                <input class="form-input" id="p-deadline" type="date">
-            </div>
         </div>
         <div class="form-actions">
             <button class="btn btn-ghost" onclick="closeModal('project-modal')">Cancel</button>
-            <button class="btn btn-primary" onclick="saveProject()">Save Project</button>
+            <button class="btn btn-primary" id="project-save-btn" onclick="saveProject()">Save Project</button>
         </div>
     </div>
 </div>
@@ -1339,16 +1369,18 @@ function renderClients() {
                             <div style="font-size:16px;font-weight:700">${c.name}</div>
                             <div style="font-size:12px;color:var(--muted);margin-top:3px">${c.email || 'No email'}</div>
                         </div>
-                        <span style="background:${c.type==='agency'?'var(--lime)':'var(--purple)'};font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">
-                            ${c.type === 'agency' ? 'Agency' : 'Individual'}
-                        </span>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span style="background:${c.type==='agency'?'var(--lime)':'var(--purple)'};font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">
+                                ${c.type === 'agency' ? 'Agency' : 'Individual'}
+                            </span>
+                            <button onclick="deleteClient('${c.id}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;font-weight:600;line-height:1;padding:2px 4px">✕</button>
+                        </div>
                     </div>
                     ${c.notes ? `<div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">${c.notes}</div>` : ''}
                     <div style="display:flex;gap:16px;padding-top:12px;border-top:1px solid var(--border)">
                         <div><div style="font-size:18px;font-weight:800">${cProjects.length}</div><div style="font-size:11px;color:var(--muted)">Projects</div></div>
                         <div><div style="font-size:18px;font-weight:800">${eur(totalEarned)}</div><div style="font-size:11px;color:var(--muted)">Earned</div></div>
                     </div>
-                    <button onclick="deleteClient('${c.id}')" style="position:absolute;top:14px;right:54px;background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;font-weight:600">✕</button>
                 </div>`;
             }).join('')}
         </div>`;
@@ -1363,28 +1395,95 @@ function deleteClient(id) {
 }
 
 // ── Projects ─────────────────────────────────────────────────────
+function resetProjectModal() {
+    document.getElementById('p-edit-id').value = '';
+    document.getElementById('project-modal-title').textContent = 'New Project';
+    document.getElementById('project-save-btn').textContent = 'Save Project';
+    ['p-name','p-price','p-start','p-deadline'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('p-month-name').value = '';
+    document.getElementById('p-month-year').value = '2025';
+    document.getElementById('p-stage').value = 'inquiry';
+}
+
+function getProjectMonthValue() {
+    const m = document.getElementById('p-month-name').value;
+    const y = document.getElementById('p-month-year').value;
+    return (m && y) ? `${y}-${m}` : '';
+}
+
 function saveProject() {
     const name = document.getElementById('p-name').value.trim();
     if (!name) { toast('Please enter a project name'); return; }
+    const editId = document.getElementById('p-edit-id').value;
     const projects = DB.get('projects');
-    projects.push({
-        id: uid(),
+
+    const data = {
         name,
         clientId: document.getElementById('p-client').value,
         type: document.getElementById('p-type').value,
         price: document.getElementById('p-price').value || 0,
-        month: document.getElementById('p-month').value,
+        month: getProjectMonthValue(),
         stage: document.getElementById('p-stage').value,
+        startDate: document.getElementById('p-start').value,
         deadline: document.getElementById('p-deadline').value,
-        createdAt: new Date().toISOString(),
-    });
+    };
+
+    if (editId) {
+        // Editing existing project
+        const idx = projects.findIndex(p => p.id === editId);
+        if (idx > -1) projects[idx] = { ...projects[idx], ...data };
+        toast('Project updated ✓');
+    } else {
+        // New project
+        projects.push({ id: uid(), ...data, createdAt: new Date().toISOString() });
+        toast('Project saved ✓');
+    }
+
     DB.set('projects', projects);
     closeModal('project-modal');
-    ['p-name','p-price','p-month','p-deadline'].forEach(id => document.getElementById(id).value = '');
-    toast('Project saved ✓');
+    document.getElementById('p-edit-id').value = '';
+    document.getElementById('project-modal-title').textContent = 'New Project';
+    document.getElementById('project-save-btn').textContent = 'Save Project';
+    ['p-name','p-price','p-start','p-deadline'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('p-month-name').value = '';
     renderProjects();
     renderTimeline();
     updateBadges();
+}
+
+function editProject(id) {
+    const p = DB.get('projects').find(pr => pr.id === id);
+    if (!p) return;
+
+    // Fill in modal fields
+    document.getElementById('p-edit-id').value = id;
+    document.getElementById('p-name').value = p.name || '';
+    document.getElementById('p-price').value = p.price || '';
+    document.getElementById('p-start').value = p.startDate || '';
+    document.getElementById('p-deadline').value = p.deadline || '';
+    document.getElementById('p-stage').value = p.stage || 'inquiry';
+    document.getElementById('p-type').value = p.type || 'Meta Ads';
+    document.getElementById('p-deadline').value = p.deadline || '';
+
+    // Set month dropdowns
+    if (p.month) {
+        const [y, m] = p.month.split('-');
+        document.getElementById('p-month-name').value = m || '';
+        document.getElementById('p-month-year').value = y || '2025';
+    } else {
+        document.getElementById('p-month-name').value = '';
+        document.getElementById('p-month-year').value = '2025';
+    }
+
+    // Set client
+    populateClientSelect('p-client');
+    document.getElementById('p-client').value = p.clientId || '';
+
+    // Update modal title and button
+    document.getElementById('project-modal-title').textContent = 'Edit Project';
+    document.getElementById('project-save-btn').textContent = 'Update Project';
+
+    openModal('project-modal');
 }
 
 function renderProjects() {
@@ -1409,14 +1508,7 @@ function renderProjects() {
     const thisMonthTotal = thisMonthProjects.reduce((s,p) => s + (parseFloat(p.price)||0), 0);
     const thisYearTotal  = thisYearProjects.reduce((s,p)  => s + (parseFloat(p.price)||0), 0);
 
-    summaryEl.innerHTML = `
-        <div class="stats-grid" style="margin-bottom:24px">
-            <div class="stat-card lime">
-                <div class="stat-label">This month</div>
-                <div class="stat-value">${eur(thisMonthTotal)}</div>
-                <div class="stat-sub">${thisMonthProjects.length} project${thisMonthProjects.length !== 1 ? 's' : ''}</div>
-            </div>
-        </div>`;
+    summaryEl.innerHTML = '';
 
     const stages = ['inquiry','negotiating','in_progress','preview_sent','revisions','delivered','invoiced','paid'];
     const today = new Date(); today.setHours(0,0,0,0);
@@ -1450,8 +1542,8 @@ function renderProjects() {
             if (deadline) {
                 const diff = Math.ceil((deadline - today) / 86400000);
                 deadlineStr = deadline.toLocaleDateString('en-GB', {day:'numeric', month:'short'});
-                if (diff < 0) deadlineColor = '#D63030';
-                else if (diff <= 3) deadlineColor = '#E07000';
+                if (diff < 0) deadlineColor = 'var(--muted)';
+                else deadlineColor = '#22AA55';
             }
             const projTasks = allTasks.filter(t => t.projectId === p.id);
             const doneCount = projTasks.filter(t => t.done).length;
@@ -1476,7 +1568,8 @@ function renderProjects() {
                     <select onchange="updateProjectStage('${p.id}',this.value)" style="border:2px solid var(--border);border-radius:8px;padding:5px 8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;outline:none;background:white;margin-right:8px">
                         ${stages.map(s => `<option value="${s}" ${p.stage===s?'selected':''}>${STAGE_LABELS[s]}</option>`).join('')}
                     </select>
-                    <button onclick="deleteProject('${p.id}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px">✕</button>
+                    <button onclick="editProject('${p.id}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;margin-right:4px" title="Edit">✏️</button>
+                    <button onclick="deleteProject('${p.id}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px" title="Delete">✕</button>
                 </td>
             </tr>`;
         }).join('');
@@ -1745,47 +1838,62 @@ function renderDashboard() {
     const tasks = DB.get('tasks');
 
     const m = now.getMonth(), y = now.getFullYear();
-    const paid = invoices.filter(i => {
-        const d = new Date(i.dueDate || i.createdAt);
+
+    // EARNED = invoices actually paid this month (by payment date)
+    const earned = invoices.filter(i => {
+        if (i.status !== 'paid') return false;
+        const d = new Date(i.paidAt || i.createdAt);
         return d.getMonth() === m && d.getFullYear() === y;
     });
-    const outstanding = invoices.filter(i => i.status === 'sent' || i.status === 'overdue');
-    const pipeline = projects.filter(p => ['inquiry','negotiating','in_progress','preview_sent','revisions'].includes(p.stage));
 
-    document.getElementById('stat-earned').textContent = eur(paid.reduce((s,i) => s + Number(i.amount), 0));
-    document.getElementById('stat-earned-sub').textContent = `${paid.length} invoice${paid.length !== 1 ? 's' : ''} this month`;
+    // OUTSTANDING = invoices sent but not yet paid (client owes you)
+    const outstanding = invoices.filter(i => i.status === 'sent');
+
+    // PIPELINE = projects in tasks section with no invoice yet (work done/ongoing, not billed)
+    const invoicedProjectIds = new Set(invoices.map(i => i.projectId).filter(Boolean));
+    const pipeline = projects.filter(p => !invoicedProjectIds.has(p.id) && Number(p.price || 0) > 0);
+
+    document.getElementById('stat-earned').textContent = eur(earned.reduce((s,i) => s + Number(i.amount), 0));
+    document.getElementById('stat-earned-sub').textContent = earned.length ? `${earned.length} invoice${earned.length !== 1 ? 's' : ''} paid` : 'No payments yet this month';
     document.getElementById('stat-outstanding').textContent = eur(outstanding.reduce((s,i) => s + Number(i.amount), 0));
     document.getElementById('stat-outstanding-sub').textContent = `${outstanding.length} invoice${outstanding.length !== 1 ? 's' : ''} unpaid`;
     document.getElementById('stat-pipeline').textContent = eur(pipeline.reduce((s,p) => s + Number(p.price || 0), 0));
-    document.getElementById('stat-pipeline-sub').textContent = `${pipeline.length} active project${pipeline.length !== 1 ? 's' : ''}`;
+    document.getElementById('stat-pipeline-sub').textContent = `${pipeline.length} project${pipeline.length !== 1 ? 's' : ''} not yet invoiced`;
 
     // Tasks
     const tasksEl = document.getElementById('dash-tasks');
-    const upcoming = tasks.filter(t => !t.done)
-        .sort((a,b) => new Date(a.dueDate||'9999') - new Date(b.dueDate||'9999'))
-        .slice(0, 5);
 
-    if (!upcoming.length) {
-        tasksEl.innerHTML = `<div class="empty">No pending tasks</div>`;
+    // Show projects currently active on the timeline (started but not yet past deadline)
+    const today = new Date(); today.setHours(0,0,0,0);
+    const activeProjects = projects.filter(p => {
+        let s, e;
+        if (p.startDate) { s = new Date(p.startDate); s.setHours(0,0,0,0); }
+        else if (p.month) { const [y,m] = p.month.split('-'); s = new Date(parseInt(y), parseInt(m)-1, 1); }
+        if (p.deadline) { e = new Date(p.deadline); e.setHours(0,0,0,0); }
+        else if (p.month) { const [y,m] = p.month.split('-'); e = new Date(parseInt(y), parseInt(m), 0); }
+        return s && e && s <= today && e >= today;
+    }).sort((a,b) => new Date(a.deadline||'9999') - new Date(b.deadline||'9999'));
+
+    if (!activeProjects.length) {
+        tasksEl.innerHTML = `<div class="empty">No active tasks right now</div>`;
     } else {
-        const today = new Date(); today.setHours(0,0,0,0);
-        tasksEl.innerHTML = upcoming.map(t => {
-            const proj = projects.find(p => p.id === t.projectId);
-            const due = t.dueDate ? new Date(t.dueDate) : null;
+        tasksEl.innerHTML = activeProjects.map(p => {
+            const due = p.deadline ? new Date(p.deadline) : null;
             let badge = '';
             if (due) {
                 const diff = Math.ceil((due - today) / 86400000);
                 if (diff < 0) badge = `<span class="badge badge-overdue">Overdue ${Math.abs(diff)}d</span>`;
                 else if (diff === 0) badge = `<span class="badge badge-today">Today</span>`;
                 else if (diff === 1) badge = `<span class="badge badge-today">Tomorrow</span>`;
-                else badge = `<span class="badge badge-soon">In ${diff}d</span>`;
+                else badge = `<span class="badge badge-soon">Due in ${diff}d</span>`;
             }
+            const STAGE_LABELS = {inquiry:'Inquiry',negotiating:'Negotiating',in_progress:'In Progress',preview_sent:'Preview Sent',revisions:'Revisions',delivered:'Delivered',invoiced:'Invoiced',paid:'Paid'};
             return `
             <div class="task-item">
-                <div class="task-check" onclick="toggleTask('${t.id}')"></div>
+                <div class="task-check" style="border-color:#ccc;cursor:default"></div>
                 <div class="task-info">
-                    <div class="task-name">${t.title}</div>
-                    ${proj ? `<div class="task-project">${proj.name}</div>` : ''}
+                    <div class="task-name">${p.name}</div>
+                    ${p.type ? `<div class="task-project">${p.type}</div>` : ''}
                 </div>
                 ${badge}
             </div>`;
@@ -1827,10 +1935,30 @@ function updateBadges() {
     const projects = DB.get('projects');
     const tasks = DB.get('tasks').filter(t => !t.done);
     const invoices = DB.get('invoices');
-    document.getElementById('nav-clients-count').textContent = clients.length;
-    document.getElementById('nav-projects-count').textContent = projects.filter(p => !['paid'].includes(p.stage)).length;
-    document.getElementById('nav-tasks-count').textContent = tasks.length;
-    document.getElementById('nav-invoices-count').textContent = invoices.filter(i => i.status !== 'paid').length;
+    // nav-clients-count and nav-invoices-count removed from UI
+    // Tasks badge = projects active today
+    const todayBadge = new Date(); todayBadge.setHours(0,0,0,0);
+    const activeToday = projects.filter(p => {
+        let s, e;
+        if (p.startDate) { s = new Date(p.startDate); s.setHours(0,0,0,0); }
+        else if (p.month) { const [y,m] = p.month.split('-'); s = new Date(parseInt(y), parseInt(m)-1, 1); }
+        if (p.deadline) { e = new Date(p.deadline); e.setHours(0,0,0,0); }
+        else if (p.month) { const [y,m] = p.month.split('-'); e = new Date(parseInt(y), parseInt(m), 0); }
+        return s && e && s <= todayBadge && e >= todayBadge;
+    }).length;
+    document.getElementById('nav-projects-count').textContent = activeToday;
+
+    // Timeline badge = projects active this week
+    const weekEnd = new Date(todayBadge); weekEnd.setDate(todayBadge.getDate() + 6);
+    const activeWeek = projects.filter(p => {
+        let s, e;
+        if (p.startDate) { s = new Date(p.startDate); s.setHours(0,0,0,0); }
+        else if (p.month) { const [y,m] = p.month.split('-'); s = new Date(parseInt(y), parseInt(m)-1, 1); }
+        if (p.deadline) { e = new Date(p.deadline); e.setHours(0,0,0,0); }
+        else if (p.month) { const [y,m] = p.month.split('-'); e = new Date(parseInt(y), parseInt(m), 0); }
+        return s && e && s <= weekEnd && e >= todayBadge;
+    }).length;
+    document.getElementById('nav-tasks-count').textContent = activeWeek;
 }
 
 // ── Invoice Paid Toggle ──────────────────────────────────────────
@@ -1855,7 +1983,6 @@ function toggleInvoicePaid(id) {
 let currentTaskView = 'list';
 function switchTaskView(view) {
     currentTaskView = 'timeline';
-    document.getElementById('tasks-list').style.display = 'none';
     document.getElementById('tasks-timeline').style.display = 'block';
     renderTimeline();
 }
@@ -1879,7 +2006,7 @@ function renderTimeline() {
     const WEEKS = 5;
     const BAR_H = 26;
     const BAR_GAP = 4;
-    const PAD = 6;
+    const PAD = 28;
 
     const today = new Date(); today.setHours(0,0,0,0);
 
@@ -1891,18 +2018,44 @@ function renderTimeline() {
     const startMonday = new Date(thisMonday);
     startMonday.setDate(thisMonday.getDate() + timelineOffset * 7);
 
-    if (!tasks.length) {
-        el.innerHTML = `<div class="card"><div class="empty"><div class="empty-icon">◈</div>No tasks yet.<br>Add a task with a start and due date to see it on the timeline.</div></div>`;
-        return;
-    }
+    // Parse projects as timeline bars (month start → deadline or month end)
+    const parsedProjects = projects
+        .filter(p => p.month || p.deadline)
+        .map((p, i) => {
+            let s, e;
+            if (p.startDate) {
+                s = new Date(p.startDate);
+            } else if (p.month) {
+                const [y, m] = p.month.split('-');
+                s = new Date(parseInt(y), parseInt(m) - 1, 1);
+            } else {
+                s = new Date(p.deadline);
+            }
+            e = p.deadline ? new Date(p.deadline) : (() => {
+                if (p.month) { const [y,m] = p.month.split('-'); return new Date(parseInt(y), parseInt(m), 0); }
+                return new Date(s);
+            })();
+            s.setHours(0,0,0,0); e.setHours(0,0,0,0);
+            return { ...p, _label: p.name, _s: s, _e: e, _c: COLORS[i % COLORS.length], _isProject: true };
+        });
 
-    const parsed = tasks.map((t, i) => ({
+    // Parse tasks
+    const parsedTasks = tasks.map((t, i) => ({
         ...t,
+        _label: t.title,
         _s: t.startDate ? new Date(t.startDate) : (t.dueDate ? new Date(t.dueDate) : null),
         _e: t.dueDate   ? new Date(t.dueDate)   : null,
         _c: COLORS[i % COLORS.length],
         _p: projects.find(p => p.id === t.projectId),
+        _isProject: false,
     }));
+
+    const parsed = [...parsedProjects, ...parsedTasks];
+
+    if (!parsed.length) {
+        el.innerHTML = `<div class="card"><div class="empty"><div class="empty-icon">◈</div>No projects or tasks yet.<br>Add a project with a month, or a task with dates, to see the timeline.</div></div>`;
+        return;
+    }
 
     const weekRows = [];
     for (let w = 0; w < WEEKS; w++) {
@@ -1919,10 +2072,13 @@ function renderTimeline() {
         const bgCells = weekDays.map((d, i) => {
             const isToday = d.getTime() === today.getTime();
             const isWknd  = i >= 5;
+            const dateLabel = isToday
+                ? `<div style="position:absolute;top:6px;right:6px;width:22px;height:22px;background:var(--lime);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">${d.getDate()}</div>`
+                : `<div style="position:absolute;top:6px;right:6px;font-size:11px;font-weight:600;color:${isWknd?'#ccc':'var(--muted)'}">${d.getDate()}</div>`;
             return `<div style="position:absolute;top:0;bottom:0;left:${i/7*100}%;width:${1/7*100}%;
                 background:${isToday?'rgba(200,240,61,0.22)':isWknd?'rgba(0,0,0,0.025)':'transparent'};
                 border-right:${i<6?'1px solid var(--border)':'none'}">
-                ${isToday?`<div style="position:absolute;top:6px;right:6px;width:22px;height:22px;background:var(--lime);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">${d.getDate()}</div>`:''}
+                ${dateLabel}
             </div>`;
         }).join('');
 
@@ -1937,7 +2093,9 @@ function renderTimeline() {
             const isStart = t._s >= mon;
             const isEnd   = t._e <= sun;
             const br = `${isStart?'7px':'2px'} ${isEnd?'7px':'2px'} ${isEnd?'7px':'2px'} ${isStart?'7px':'2px'}`;
-            return `<div style="position:absolute;top:${top}px;left:calc(${l}% + 2px);width:calc(${wp}% - 4px);height:${BAR_H}px;background:${t._c};border-radius:${br};display:flex;align-items:center;padding:0 9px;font-size:12px;font-weight:700;color:rgba(0,0,0,0.6);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;opacity:${t.done?0.4:1}" title="${t.title}">${isStart?t.title:'↳ '+t.title}</div>`;
+            const label = t._label || t.title || t.name || '';
+            const opacity = t._isProject ? 0.5 : (t.done ? 0.4 : 1);
+            return `<div style="position:absolute;top:${top}px;left:calc(${l}% + 2px);width:calc(${wp}% - 4px);height:${BAR_H}px;background:${t._c};border-radius:${br};display:flex;align-items:center;padding:0 9px;font-size:12px;font-weight:700;color:rgba(0,0,0,0.6);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;opacity:${opacity}" title="${label}">${isStart ? label : '↳ ' + label}</div>`;
         }).join('');
 
         const monthLabel = mon.toLocaleDateString('en-GB', {month:'short', year:'numeric'});
@@ -1945,10 +2103,6 @@ function renderTimeline() {
 
         weekRows.push(`
         <div style="display:flex;border-bottom:1px solid var(--border)">
-            <div style="width:72px;flex-shrink:0;border-right:2px solid var(--border);padding:10px 10px 10px 14px;display:flex;flex-direction:column;justify-content:flex-start;gap:2px">
-                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted)">${monthLabel}</div>
-                <div style="font-size:22px;font-weight:800;line-height:1;color:var(--text)">${dayNum}</div>
-            </div>
             <div style="flex:1;position:relative;height:${rowH}px">
                 ${bgCells}
                 ${bars}
@@ -1982,12 +2136,15 @@ function renderTimeline() {
             </div>
         </div>
         <div style="display:flex;margin-top:16px;border-top:2px solid var(--border);border-bottom:2px solid var(--border)">
-            <div style="width:72px;flex-shrink:0;border-right:2px solid var(--border)"></div>
             <div style="flex:1;display:flex">${dayHeader}</div>
         </div>
         ${weekRows.join('')}
         <div style="padding:12px 24px;font-size:12px;color:var(--muted);font-weight:500">
-            ${tasks.filter(t=>!t.done).length} active tasks
+            ${(() => {
+                const todayCheck = new Date(); todayCheck.setHours(0,0,0,0);
+                const activeToday = parsedProjects.filter(p => p._s <= todayCheck && p._e >= todayCheck).length;
+                return `${activeToday} active task${activeToday!==1?'s':''} today`;
+            })()}
         </div>
     </div>`;
 }
@@ -2076,13 +2233,16 @@ function renderGoals() {
     const now      = new Date();
 
     // ── Income progress ──────────────────────────────────────
+    // Use payment date (paidAt) — same logic as dashboard earned cards
     const monthEarned = invoices.filter(i => {
-        const d = new Date(i.dueDate || i.createdAt);
+        if (i.status !== 'paid') return false;
+        const d = new Date(i.paidAt || i.createdAt);
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }).reduce((s, i) => s + Number(i.amount), 0);
 
     const yearEarned = invoices.filter(i => {
-        return new Date(i.dueDate || i.createdAt).getFullYear() === now.getFullYear();
+        if (i.status !== 'paid') return false;
+        return new Date(i.paidAt || i.createdAt).getFullYear() === now.getFullYear();
     }).reduce((s, i) => s + Number(i.amount), 0);
 
     const monthExpenses = expenses.filter(e => {
@@ -2799,12 +2959,12 @@ function renderMonthly() {
     const invoices = DB.get('invoices');
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const monthsFull = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    // Only count invoices that were actually PAID, grouped by payment date
     const monthly = Array(12).fill(0);
     invoices.forEach(inv => {
-        {
-            const d = new Date(inv.dueDate || inv.createdAt);
-            if (d.getFullYear() === 2026) monthly[d.getMonth()] += Number(inv.amount);
-        }
+        if (inv.status !== 'paid') return;
+        const d = new Date(inv.paidAt || inv.createdAt);
+        if (d.getFullYear() === new Date().getFullYear()) monthly[d.getMonth()] += Number(inv.amount);
     });
     const max = Math.max(...monthly, 1);
     const currentMonth = new Date().getMonth();
@@ -2832,7 +2992,7 @@ function renderMonthly() {
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding-top:16px;border-top:1px solid var(--border);margin-top:12px">
             <div>
-                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:4px">Total earned 2026</div>
+                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:4px">Total earned ${new Date().getFullYear()}</div>
                 <div style="font-size:26px;font-weight:800">${eur(totalPaid)}</div>
             </div>
             <div style="text-align:center">
@@ -2852,8 +3012,9 @@ function showMonthDetail(monthIndex) {
     const invoices = DB.get('invoices');
     const clients = DB.get('clients');
     const monthInvoices = invoices.filter(inv => {
-        const d = new Date(inv.dueDate || inv.createdAt);
-        return d.getFullYear() === 2026 && d.getMonth() === monthIndex;
+        if (inv.status !== 'paid') return false;
+        const d = new Date(inv.paidAt || inv.createdAt);
+        return d.getFullYear() === new Date().getFullYear() && d.getMonth() === monthIndex;
     });
     const byClient = {};
     monthInvoices.forEach(inv => {
@@ -2864,7 +3025,7 @@ function showMonthDetail(monthIndex) {
         byClient[name].invoices.push(inv);
     });
     const total = monthInvoices.reduce((s, i) => s + Number(i.amount), 0);
-    document.getElementById('month-detail-title').textContent = monthsFull[monthIndex] + ' 2026';
+    document.getElementById('month-detail-title').textContent = monthsFull[monthIndex] + ' ' + new Date().getFullYear();
     const sorted = Object.entries(byClient).sort((a, b) => b[1].total - a[1].total);
     document.getElementById('month-detail-body').innerHTML = sorted.length === 0
         ? '<p style="color:var(--muted);text-align:center;padding:24px 0">No invoices this month</p>'
