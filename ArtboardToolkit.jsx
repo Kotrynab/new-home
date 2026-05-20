@@ -571,7 +571,6 @@
           workItem = copies[0];
         }
         placeItemOnArtboard(workItem, pos, dstAB, mode);
-        if (copies.length > 1) workItem.ungroup();
       }
       alert("Done! Copied to " + targets.length + " artboard(s).\nCmd+Z to undo.");
     } catch (err) {
