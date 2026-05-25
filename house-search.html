@@ -503,6 +503,7 @@
   <button onclick="showTab('finance',this)">Finance</button>
   <button onclick="showTab('resources',this)">Resources</button>
   <button onclick="showTab('furnishing',this)">Furnishing</button>
+  <button onclick="showTab('projects',this)">New Builds</button>
 </nav>
 
 <!-- ===== OVERVIEW ===== -->
@@ -994,6 +995,43 @@
       </div>
     </div>
   </div>
+</section>
+
+<!-- ===== NEW BUILDS PROJECTS ===== -->
+<section id="tab-projects">
+  <div class="section-header">
+    <div>
+      <h2 class="section-title"><span>New Build</span> Projects</h2>
+      <div class="section-subtitle">Track new apartment developments you're considering</div>
+    </div>
+  </div>
+
+  <!-- Add project form -->
+  <div class="card-white" style="margin-bottom:20px;">
+    <h3 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1.1rem;color:var(--sage-dark);margin-bottom:16px;">Add a new project</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(200px,100%),1fr));gap:12px;align-items:end;">
+      <div class="form-group">
+        <label>Project name</label>
+        <input type="text" id="proj-name" placeholder="e.g. Kaunorama">
+      </div>
+      <div class="form-group">
+        <label>Website link</label>
+        <input type="url" id="proj-link" placeholder="https://...">
+      </div>
+      <div class="form-group">
+        <label>Price range (€/m²)</label>
+        <input type="text" id="proj-price" placeholder="e.g. 2800–3200">
+      </div>
+      <div class="form-group">
+        <label>Completion date</label>
+        <input type="text" id="proj-completion" placeholder="e.g. Q3 2027">
+      </div>
+      <button class="btn btn-primary" onclick="addProject()" style="align-self:end;">+ Add project</button>
+    </div>
+  </div>
+
+  <!-- Projects list -->
+  <div id="projects-list"></div>
 </section>
 
 <!-- ===== ADD/EDIT MODAL ===== -->
@@ -2008,6 +2046,78 @@ function renderFurnishing() {
   document.getElementById('furnishing-total-range').textContent = `Range: ${grandBudget.toLocaleString()}€ (budget) — ${grandPremium.toLocaleString()}€ (premium)`;
 }
 // ===== END FURNISHING ESTIMATOR =====
+
+// ===== NEW BUILDS PROJECTS =====
+let projects = JSON.parse(localStorage.getItem('hs_projects') || '[]');
+
+function addProject() {
+  const name = document.getElementById('proj-name').value.trim();
+  const link = document.getElementById('proj-link').value.trim();
+  const price = document.getElementById('proj-price').value.trim();
+  const completion = document.getElementById('proj-completion').value.trim();
+
+  if (!name) { alert('Please enter project name'); return; }
+
+  projects.push({
+    id: Date.now().toString(),
+    name, link, price, completion,
+    notes: '',
+    dateAdded: new Date().toISOString()
+  });
+
+  saveProjects();
+  document.getElementById('proj-name').value = '';
+  document.getElementById('proj-link').value = '';
+  document.getElementById('proj-price').value = '';
+  document.getElementById('proj-completion').value = '';
+  renderProjects();
+}
+
+function removeProject(id) {
+  projects = projects.filter(p => p.id !== id);
+  saveProjects();
+  renderProjects();
+}
+
+function updateProjectNotes(id, notes) {
+  const p = projects.find(p => p.id === id);
+  if (p) { p.notes = notes; saveProjects(); }
+}
+
+function saveProjects() {
+  localStorage.setItem('hs_projects', JSON.stringify(projects));
+  saveTimestamp();
+}
+
+function renderProjects() {
+  const wrap = document.getElementById('projects-list');
+  if (!projects.length) { wrap.innerHTML = '<div class="empty-state"><div class="es-icon">📋</div><p>No projects yet. Add one to get started!</p></div>'; return; }
+
+  wrap.innerHTML = projects.map(p => `
+    <div class="card-white" style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+        <div style="flex:1;min-width:200px;">
+          <div style="font-weight:600;font-size:0.95rem;color:var(--sage-dark);">${p.name}</div>
+          ${p.price ? `<div style="font-size:0.8rem;color:var(--text-light);margin-top:2px;">💰 ${p.price}€/m²</div>` : ''}
+          ${p.completion ? `<div style="font-size:0.8rem;color:var(--text-light);margin-top:2px;">📅 ${p.completion}</div>` : ''}
+        </div>
+        <button onclick="removeProject('${p.id}')" style="background:#F5D5D5;color:#9A3030;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:0.85rem;">×</button>
+      </div>
+
+      ${p.link ? `<div style="margin-bottom:12px;"><a href="${p.link}" target="_blank" class="btn btn-secondary btn-sm">Visit project ↗</a></div>` : ''}
+
+      <div style="margin-bottom:12px;">
+        <label style="font-size:0.75rem;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.03em;display:block;margin-bottom:6px;">Notes & observations</label>
+        <textarea placeholder="• Apartment types & sizes available&#10;• Price per m² details&#10;• Completion status&#10;• Contact person&#10;• Your impressions..."
+          style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:var(--radius-xs);font-family:'DM Sans',sans-serif;font-size:0.85rem;line-height:1.6;background:var(--cream);resize:vertical;min-height:100px;"
+          oninput="updateProjectNotes('${p.id}', this.value)">${p.notes}</textarea>
+      </div>
+
+      <div style="font-size:0.72rem;color:var(--text-light);">Added ${new Date(p.dateAdded).toLocaleDateString('en-GB')}</div>
+    </div>
+  `).join('');
+}
+// ===== END NEW BUILDS PROJECTS =====
 
 document.getElementById('house-modal').addEventListener('click', function(e) { if (e.target===this) closeModal(); });
 document.getElementById('detail-modal').addEventListener('click', function(e) { if (e.target===this) closeDetailModal(); });
